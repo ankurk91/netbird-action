@@ -8,11 +8,12 @@ node.
 
 ## Setup
 
-1. In the NetBird dashboard, open **Setup Keys** and create one for your runners:
+1. In the NetBird dashboard, open Settings-> **Setup Keys** and create one for your runners:
 
 - **One-off** if a single job uses it, **reusable** otherwise.
 - Turn on **Ephemeral** so the peer is removed automatically once the job ends. Without it every run leaves a dead peer
   behind.
+- Set a proper expiry
 - Give it a group your access policies already allow, so the runner can reach what it needs.
 
 2. Add the key as a repository secret named `NETBIRD_SETUP_KEY`.
@@ -112,4 +113,4 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE.txt)
