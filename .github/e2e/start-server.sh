@@ -10,10 +10,14 @@ CONFIG="${GITHUB_WORKSPACE:-$PWD}/.github/e2e/config.yaml"
 # NB_SETUP_PAT_ENABLED opens /api/setup, which creates the first owner and hands
 # back a token without anyone logging in. It is the only way to bootstrap the
 # server unattended, and it closes itself once an account exists.
+# dataDir has to exist before the server starts - it creates the SQLite file in
+# there, not the directory - and the image ships without it. tmpfs rather than a
+# volume: none of this outlives the job, and nothing is left on the runner.
 echo '=== Starting the NetBird server ==='
 docker run --detach --name netbird-server \
   --network host \
   --env NB_SETUP_PAT_ENABLED=true \
+  --tmpfs /var/lib/netbird \
   --volume "$CONFIG:/etc/netbird/config.yaml:ro" \
   "$IMAGE" --config /etc/netbird/config.yaml
 
@@ -33,7 +37,12 @@ for _ in $(seq 60); do
 done
 
 if [ -z "${server_ready:-}" ]; then
-  echo '::error::the NetBird server did not become healthy'
+  if [ -z "$(docker ps --quiet --filter name=netbird-server)" ]; then
+    echo "::error::the NetBird server exited before it was healthy, with code $(docker inspect --format '{{.State.ExitCode}}' netbird-server)"
+  else
+    echo '::error::the NetBird server is running but never answered its healthcheck'
+  fi
+
   docker logs netbird-server
   exit 1
 fi
