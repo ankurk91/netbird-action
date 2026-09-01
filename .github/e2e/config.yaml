@@ -1,0 +1,33 @@
+# Throwaway NetBird server for the end-to-end job: management, signal, relay and
+# STUN in one container, with the embedded identity provider so no external IdP
+# is needed. Nothing here is a secret - the server lives on the runner's
+# localhost for the length of one job and is thrown away with it.
+#
+# The container runs on the host network, so the address below means the same
+# thing to the server, to its own identity provider and to the client the action
+# installs. Bridged networking would give the container a localhost of its own
+# and the three would disagree.
+server:
+  listenAddress: ':8081'
+  exposedAddress: 'http://localhost:8081'
+  healthcheckAddress: ':9000'
+  metricsPort: 9090
+  logLevel: 'info'
+  logFile: 'console'
+  authSecret: 'e2e-relay-secret-for-a-throwaway-server'
+  dataDir: '/var/lib/netbird/'
+
+  auth:
+    issuer: 'http://localhost:8081/oauth2'
+    localAuthDisabled: false
+    signKeyRefreshEnabled: false
+    dashboardRedirectURIs:
+      - 'http://localhost:8081/nb-auth'
+      - 'http://localhost:8081/nb-silent-auth'
+    cliRedirectURIs:
+      - 'http://localhost:53000/'
+
+  store:
+    engine: 'sqlite'
+    dsn: ''
+    encryptionKey: 'ZTJlLXRlc3Qta2V5LW5vdC1hLXJlYWwtc2VjcmV0MDA='

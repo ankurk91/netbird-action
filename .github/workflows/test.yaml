@@ -1,0 +1,63 @@
+name: test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 16 * *'
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-26.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # A real NetBird server, so the action registers a real peer and gets a
+      # real network map back - the parts no amount of mocking would cover.
+      - name: Start a throwaway NetBird server
+        id: server
+        run: .github/e2e/start-server.sh
+
+      - name: Join the network using this action
+        id: netbird
+        uses: ./
+        with:
+          setup-key: ${{ steps.server.outputs.setup-key }}
+          management-url: http://localhost:8081
+          diagnostics: true
+
+      - name: Assert the runner joined
+        env:
+          NETBIRD_IP: ${{ steps.netbird.outputs.netbird-ip }}
+          NETBIRD_PAT: ${{ steps.server.outputs.pat }}
+          PEER_HOSTNAME: gh-${{ github.run_id }}-${{ github.run_attempt }}
+        run: .github/e2e/assert-connected.sh
+
+      - name: Show the server side
+        if: always()
+        run: docker logs --tail 100 netbird-server
+
+      - name: Remove the server
+        if: always()
+        run: docker rm --force netbird-server
