@@ -21,14 +21,22 @@ docker run --detach --name netbird-server \
   --volume "$CONFIG:/etc/netbird/config.yaml:ro" \
   "$IMAGE" --config /etc/netbird/config.yaml
 
+# Waiting on the management API rather than the relay's healthcheck, because the
+# API is the part the rest of this script and the action itself talk to. Any
+# HTTP status answers the only question being asked - is it listening - so the
+# probe does not depend on what the endpoint decides to return.
 echo '=== Waiting for it to come up ==='
 for _ in $(seq 60); do
-  if curl -fsS --max-time 5 http://localhost:9000/health > /dev/null 2>&1; then
-    server_ready=1
-    break
-  fi
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "$API_URL/api/instance" 2> /dev/null || true)"
 
-  # A server that died is never coming up, so stop waiting out the full minute.
+  case "$code" in
+    2* | 3* | 4*)
+      server_ready=1
+      break
+      ;;
+  esac
+
+  # A server that died is never coming up, so stop waiting out the full budget.
   if [ -z "$(docker ps --quiet --filter name=netbird-server)" ]; then
     break
   fi
@@ -38,14 +46,17 @@ done
 
 if [ -z "${server_ready:-}" ]; then
   if [ -z "$(docker ps --quiet --filter name=netbird-server)" ]; then
-    echo "::error::the NetBird server exited before it was healthy, with code $(docker inspect --format '{{.State.ExitCode}}' netbird-server)"
+    echo "::error::the NetBird server exited before it was ready, with code $(docker inspect --format '{{.State.ExitCode}}' netbird-server)"
   else
-    echo '::error::the NetBird server is running but never answered its healthcheck'
+    echo "::error::the NetBird server is running but never answered on $API_URL"
   fi
 
   docker logs netbird-server
   exit 1
 fi
+
+# setup_required tells us the bootstrap below is still open to us.
+curl -fsS --max-time 10 "$API_URL/api/instance" | jq .
 
 echo '=== Creating the owner and an admin token ==='
 setup_response="$(curl -fsS --max-time 30 -X POST "$API_URL/api/setup" \
