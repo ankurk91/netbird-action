@@ -37,10 +37,11 @@ peers="$(curl -fsS --max-time 30 "$API_URL/api/peers" \
   -H "Authorization: Token $NETBIRD_PAT" \
   -H 'Accept: application/json')"
 
-printf '%s' "$peers" | jq -r '.[] | "\(.hostname)\t\(.ip)\tconnected=\(.connected)"'
+# name is what --hostname set; hostname is what the runner calls itself.
+printf '%s' "$peers" | jq -r '.[] | "name=\(.name)\thostname=\(.hostname)\t\(.ip)\tconnected=\(.connected)"'
 
-# The name is the action's default hostname, so this covers the peer arriving
-# and arriving under the name the run gave it.
+# So this covers both the peer arriving and it arriving under the name the run
+# gave it, which is the action's default hostname.
 if ! printf '%s' "$peers" |
   jq -e --arg h "$PEER_HOSTNAME" 'any(.[]; .hostname == $h or .name == $h)' > /dev/null; then
   echo "::error::the server has no peer named '$PEER_HOSTNAME'"
