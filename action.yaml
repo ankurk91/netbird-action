@@ -43,10 +43,14 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install NetBird
+      shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/src/install.sh"
+
     - name: Connect to NetBird
       id: connect
       shell: bash
-      run: bash "${GITHUB_ACTION_PATH}/src/main.sh"
+      run: bash "${GITHUB_ACTION_PATH}/src/connect.sh"
       env:
         INPUT_SETUP_KEY: ${{ inputs.setup-key }}
         INPUT_MANAGEMENT_URL: ${{ inputs.management-url }}

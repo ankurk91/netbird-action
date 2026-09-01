@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the NetBird client and join the network.
+# Register the runner as a peer and put it on the network.
 set -euo pipefail
 
 SETUP_KEY="${INPUT_SETUP_KEY:-}"
@@ -9,12 +9,6 @@ EXIT_NODE="${INPUT_EXIT_NODE:-}"
 EXTRA_ARGS="${INPUT_ARGS:-}"
 TIMEOUT="${INPUT_TIMEOUT:-60}"
 DIAGNOSTICS="${INPUT_DIAGNOSTICS:-false}"
-INSTALLER_DIR="${RUNNER_TEMP:-/tmp}/netbird-installer"
-
-if [ "${RUNNER_OS:-Linux}" != 'Linux' ]; then
-  echo "::error::this action supports Linux runners only, this one is ${RUNNER_OS}"
-  exit 1
-fi
 
 if [ -z "$SETUP_KEY" ]; then
   echo "::error::input 'setup-key' is empty"
@@ -62,51 +56,6 @@ if [ "$DIAGNOSTICS" = 'true' ]; then
   ip_before_netbird="$(public_ip)"
 fi
 
-echo "=== Installing the NetBird client ==="
-if command -v netbird > /dev/null; then
-  echo "already installed, skipping"
-else
-  mkdir -p "$INSTALLER_DIR"
-
-  curl --fail --no-progress-meter --location \
-    --connect-timeout 10 --max-time 60 --retry 2 \
-    --output "$INSTALLER_DIR/install.sh" \
-    https://pkgs.netbird.io/install.sh
-
-  chmod 755 "$INSTALLER_DIR/install.sh"
-
-  # Take the release binary rather than the apt package: it skips adding the
-  # NetBird repository and the apt-get update that follows, and it covers the
-  # arm64 runners on the same path. There is no desktop here to put a UI on.
-  USE_BIN_INSTALL=true SKIP_UI_APP=true "$INSTALLER_DIR/install.sh"
-fi
-
-# The install registers the service and starts it, but `netbird up` talks to the
-# daemon over a socket that appears a moment after the service does, so a run
-# that installs and connects back to back can arrive before it is listening.
-echo "=== Waiting for the NetBird daemon ==="
-for i in $(seq "$TIMEOUT"); do
-  # Both "Daemon version" from a logged-in daemon and "Daemon status: NeedsLogin"
-  # from a fresh one mean the same thing here: something is answering.
-  if sudo netbird status 2>&1 | grep -q 'Daemon'; then
-    daemon_ready=1
-    break
-  fi
-
-  # A binary install leaves the service registered but not always running.
-  if [ "$i" -eq 1 ]; then
-    sudo netbird service start > /dev/null 2>&1 || true
-  fi
-
-  sleep 1
-done
-
-if [ -z "${daemon_ready:-}" ]; then
-  echo "::error::the NetBird daemon did not come up within ${TIMEOUT}s"
-  sudo netbird service status || true
-  exit 1
-fi
-
 # Passing the key as --setup-key would leave it in the process list, where any
 # other job on a shared self-hosted runner can read it.
 key_file="$(mktemp "${RUNNER_TEMP:-/tmp}/netbird-setup-key.XXXXXX")"
@@ -134,7 +83,7 @@ trap - EXIT
 # than the peer being able to carry traffic: the signal connection and the
 # network map both follow. Waiting here keeps a later step from failing on a
 # peer that was merely registered.
-echo "=== Waiting for the peer to connect ==="
+echo '=== Waiting for the peer to connect ==='
 for _ in $(seq "$TIMEOUT"); do
   status="$(sudo netbird status 2>&1 || true)"
 
@@ -194,19 +143,19 @@ echo "netbird-ip=${netbird_ip}" >> "$GITHUB_OUTPUT"
 # printed only when asked for.
 if [ "$DIAGNOSTICS" = 'true' ]; then
   echo
-  echo "=== NetBird IP ==="
+  echo '=== NetBird IP ==='
   echo "$netbird_ip"
 
   echo
-  echo "=== NetBird status ==="
+  echo '=== NetBird status ==='
   sudo netbird status -d
 
   echo
-  echo "=== Networks ==="
+  echo '=== Networks ==='
   sudo netbird routes ls
 
   echo
-  echo "=== Routes ==="
+  echo '=== Routes ==='
   ip route
 
   echo
