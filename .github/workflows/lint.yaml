@@ -1,0 +1,39 @@
+name: lint
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 16 * *'
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - '**.sh'
+      - '.github/workflows/lint.yaml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - '**.sh'
+      - '.github/workflows/lint.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run the sh-checker
+        uses: luizm/action-sh-checker@v0.10.0
+        env:
+          SHFMT_OPTS: --simplify --keep-padding
+        with:
+          sh_checker_checkbashisms_enable: true
+          sh_checker_shfmt_disable: true

@@ -1,0 +1,57 @@
+name: 'Connect to NetBird Network'
+description: 'Install the NetBird client on an Ubuntu runner and join your network with a setup key.'
+author: 'ankurk91'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  setup-key:
+    description: 'Setup key from the NetBird dashboard, used to register the runner as a peer. Always pass this from a secret.'
+    required: true
+  management-url:
+    description: 'Management service URL [http|https]://[host]:[port]. Set this when you self-host NetBird.'
+    required: false
+    default: 'https://api.netbird.io:443'
+  hostname:
+    description: 'Peer name shown in the NetBird dashboard.'
+    required: false
+    default: 'gh-${{ github.run_id }}-${{ github.run_attempt }}'
+  exit-node:
+    description: 'Network (route) ID to send traffic through once connected. Empty leaves the distributed routes as they are.'
+    required: false
+    default: ''
+  args:
+    description: 'Extra flags appended to `netbird up`, split on whitespace.'
+    required: false
+    default: ''
+  timeout:
+    description: 'Seconds to wait for the peer to connect, and for the exit node route to reach it.'
+    required: false
+    default: '60'
+  diagnostics:
+    description: 'Print the peer state to the job log: netbird status, the routes and the public IP before and after connecting. Off by default.'
+    required: false
+    default: 'false'
+
+outputs:
+  netbird-ip:
+    description: "The runner's IPv4 address inside the NetBird network, e.g. 100.64.0.33."
+    value: ${{ steps.connect.outputs.netbird-ip }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Connect to NetBird
+      id: connect
+      shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/src/main.sh"
+      env:
+        INPUT_SETUP_KEY: ${{ inputs.setup-key }}
+        INPUT_MANAGEMENT_URL: ${{ inputs.management-url }}
+        INPUT_HOSTNAME: ${{ inputs.hostname }}
+        INPUT_EXIT_NODE: ${{ inputs.exit-node }}
+        INPUT_ARGS: ${{ inputs.args }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_DIAGNOSTICS: ${{ inputs.diagnostics }}
