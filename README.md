@@ -1,6 +1,6 @@
 # NetBird Action
 
-[![test](https://github.com/ankurk91/netbird-action/actions/workflows/test.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
+[![tests](https://github.com/ankurk91/netbird-action/actions/workflows/tests.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
 [![lint](https://github.com/ankurk91/netbird-action/actions/workflows/lint.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
 
 A GitHub Action that installs the [NetBird](https://netbird.io) client on an Ubuntu runner and joins your network with a

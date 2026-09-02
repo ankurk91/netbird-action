@@ -1,4 +1,4 @@
-name: test
+name: tests
 
 on:
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
       # real network map back - the parts no amount of mocking would cover.
       - name: Start a throwaway NetBird server
         id: server
-        run: .github/e2e/start-server.sh
+        run: bash .github/e2e/start-server.sh
 
       - name: Join the network using this action
         id: netbird
@@ -54,7 +54,7 @@ jobs:
           NETBIRD_IP: ${{ steps.netbird.outputs.netbird-ip }}
           NETBIRD_PAT: ${{ steps.server.outputs.pat }}
           PEER_HOSTNAME: gh-${{ github.run_id }}-${{ github.run_attempt }}
-        run: .github/e2e/assert-connected.sh
+        run: bash .github/e2e/assert-connected.sh
 
       - name: Show the server side
         if: always()
@@ -63,3 +63,41 @@ jobs:
       - name: Remove the server
         if: always()
         run: docker rm --force netbird-server
+
+  # The e2e job above always installs whatever is newest, so the 'version' input
+  # only gets exercised here. One architecture is enough: this is about which
+  # release the script asks for, not about the binary it gets back.
+  install:
+    name: install (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Nothing asked for, so the newest release is what has to land.
+          - name: 'no version'
+            version: ''
+            expected: ''
+          # A real release that is not the newest, so a pass means the pin was
+          # honoured rather than quietly ignored.
+          - name: 'pinned'
+            version: '0.76.3'
+            expected: '0.76.3'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run the install script on its own
+        env:
+          INPUT_VERSION: ${{ matrix.version }}
+          INPUT_GITHUB_TOKEN: ${{ github.token }}
+        run: bash src/install.sh
+
+      - name: Assert the version that landed
+        env:
+          EXPECTED_VERSION: ${{ matrix.expected }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash .github/e2e/assert-install.sh

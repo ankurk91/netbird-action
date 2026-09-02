@@ -10,14 +10,16 @@ on:
       - dev
     paths:
       - '**.sh'
-      - '.github/workflows/lint.yaml'
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
   pull_request:
     branches:
       - main
       - dev
     paths:
       - '**.sh'
-      - '.github/workflows/lint.yaml'
+      - '.github/workflows/**'
+      - '.github/actionlint.yaml'
 
 permissions:
   contents: read
@@ -42,10 +44,9 @@ jobs:
           sh_checker_shfmt_disable: true
 
       - name: Install action-lint
-        shell: bash
         env:
           LINT_VERSION: ${{ env.ACTION_LINT_VERSION }}
-          REMOTE_URL: "https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash"
+          REMOTE_URL: "https://raw.githubusercontent.com/rhysd/actionlint/v${{ env.ACTION_LINT_VERSION }}/scripts/download-actionlint.bash"
         run: |
           INSTALL_DIR="${HOME}/.local/bin"
           mkdir -p "$INSTALL_DIR"
@@ -58,7 +59,6 @@ jobs:
           echo "$INSTALL_DIR" >> "$GITHUB_PATH"
 
       - name: Lint GitHub Actions workflows
-        shell: bash
         run: |
           shellcheck --version
           find .github/workflows -type f \( -name "*.yml" -o -name "*.yaml" \) -exec actionlint -color -pyflakes= {} +
