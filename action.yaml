@@ -4,7 +4,7 @@ author: 'ankurk91'
 
 branding:
   icon: 'shield'
-  color: 'blue'
+  color: 'orange'
 
 inputs:
   setup-key:
@@ -26,6 +26,14 @@ inputs:
     description: 'Extra flags appended to `netbird up`, split on whitespace.'
     required: false
     default: ''
+  version:
+    description: 'NetBird client release to install, such as 0.77.1. Defaults to the newest release.'
+    required: false
+    default: 'latest'
+  github-token:
+    description: 'Raises the GitHub API rate limit while resolving a pinned `version`. Sent only when `version` is pinned. Pass an empty string to withhold it.'
+    required: false
+    default: ${{ github.token }}
   timeout:
     description: 'Seconds to wait for the peer to connect, and for the exit node route to reach it.'
     required: false
@@ -46,6 +54,9 @@ runs:
     - name: Install NetBird
       shell: bash
       run: bash "${GITHUB_ACTION_PATH}/src/install.sh"
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - name: Connect to NetBird
       id: connect

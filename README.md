@@ -52,6 +52,8 @@ jobs:
           exit-node: ${{ vars.NETBIRD_EXIT_NODE_ID }}
           # Appended to `netbird up`, split on whitespace.
           args: ''
+          # Client release to install. Pin it to keep runs reproducible.
+          version: latest
           # Seconds to wait for the peer to connect, and for the exit node route.
           timeout: 60
           diagnostics: false
@@ -78,6 +80,8 @@ There is no disconnect step to add. With an ephemeral setup key the peer disappe
 | `hostname`       | no       | `gh-<run id>-<run attempt>`  | Peer name shown in the dashboard.                                                 |
 | `exit-node`      | no       | —                            | Network ID to route through. The route must be distributed to this peer's group.  |
 | `args`           | no       | —                            | Extra flags appended to `netbird up`, split on whitespace.                        |
+| `version`        | no       | `latest`                     | Client release to install. See [Client version](#client-version).                 |
+| `github-token`   | no       | `${{ github.token }}`        | Raises the API rate limit when `version` is pinned. Only sent then.               |
 | `timeout`        | no       | `60`                         | Seconds to wait for the peer to connect, and for the exit node route to reach it. |
 | `diagnostics`    | no       | `false`                      | Print the peer state to the job log. See [Diagnostics](#diagnostics).             |
 
@@ -95,6 +99,21 @@ traffic leaves from, not the address it answers on.
 
 An Ubuntu runner (`ubuntu-latest`, `ubuntu-24.04`, `ubuntu-26.04`, their `-arm` variants, or self-hosted Ubuntu). The
 runner needs passwordless `sudo`, which GitHub-hosted runners have — the client runs as a system service.
+
+## Client version
+
+`version` takes `0.77.1` or `v0.77.1`, and installs the newest release when left at `latest`. Pin it when you want
+every run to install the same client, or to hold back a release that broke something for you.
+
+If the runner already carries a NetBird client, that one is kept: the action warns and does not replace it.
+
+Pinning also changes where the version is looked up. `latest` reads NetBird's own CDN, while a pinned tag is resolved
+through `api.github.com`, which allows 60 unauthenticated requests an hour per IP address. Hosted runners share egress
+addresses, so a busy account can reach that limit and watch installs start failing.
+
+So the action sends `github-token` when, and only when, you pin a version, which lifts the limit to 1000 requests an
+hour for the repository. It defaults to the workflow's own `GITHUB_TOKEN` and needs no setup. The `latest` path gains
+nothing from a token, so it never sees one.
 
 ## Diagnostics
 

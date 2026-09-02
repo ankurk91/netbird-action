@@ -22,6 +22,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ACTION_LINT_VERSION: "1.7.12"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -37,3 +40,26 @@ jobs:
         with:
           sh_checker_checkbashisms_enable: true
           sh_checker_shfmt_disable: true
+
+      - name: Install action-lint
+        shell: bash
+        env:
+          LINT_VERSION: ${{ env.ACTION_LINT_VERSION }}
+          REMOTE_URL: "https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash"
+        run: |
+          INSTALL_DIR="${HOME}/.local/bin"
+          mkdir -p "$INSTALL_DIR"
+          curl -sfL \
+            --retry 3 \
+            --retry-delay 5 \
+            --connect-timeout 15 \
+            --max-time 60 \
+            "$REMOTE_URL" | bash -s -- "$LINT_VERSION" "$INSTALL_DIR"
+          echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+
+      - name: Lint GitHub Actions workflows
+        shell: bash
+        run: |
+          shellcheck --version
+          find .github/workflows -type f \( -name "*.yml" -o -name "*.yaml" \) -exec actionlint -color -pyflakes= {} +
+          echo "Linting finished."
