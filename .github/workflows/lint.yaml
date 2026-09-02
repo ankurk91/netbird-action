@@ -37,8 +37,6 @@ jobs:
 
       - name: Run the sh-checker
         uses: luizm/action-sh-checker@v0.10.0
-        env:
-          SHFMT_OPTS: --simplify --keep-padding
         with:
           sh_checker_checkbashisms_enable: true
           sh_checker_shfmt_disable: true
