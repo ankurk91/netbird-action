@@ -1,11 +1,14 @@
 # Setup NetBird
 
-<img src="https://raw.githubusercontent.com/ankurk91/netbird-action/main/.github/banner.jpg"
-  alt="NetBird GitHub Action - connect a workflow runner to your NetBird network" width="640">
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ankurk91/netbird-action/main/.github/banner.jpg?v=2"
+    alt="Setup NetBird - connect your GitHub Actions CI runners to your NetBird network" width="640">
+</p>
 
 [![tests](https://github.com/ankurk91/netbird-action/actions/workflows/tests.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
 [![lint](https://github.com/ankurk91/netbird-action/actions/workflows/lint.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
 [![marketplace](https://img.shields.io/badge/marketplace-setup--netbird-blue?logo=github)](https://github.com/marketplace/actions/setup-netbird)
+[![runner](https://img.shields.io/badge/runner-Linux%20only-blue?logo=linux&logoColor=white)](#requirements)
 
 A GitHub Action that installs the [NetBird](https://netbird.io) client on an Ubuntu runner and joins your network with a
 setup key, so the rest of the job can reach your private peers. It can also route the runner's traffic through an exit
@@ -106,8 +109,8 @@ runner needs passwordless `sudo`, which GitHub-hosted runners have — the clien
 
 ## Client version
 
-`version` takes `0.78.1` or `v0.78.1`, and installs the newest release when left at `latest`. Pin it when you want
-every run to install the same client, or to hold back a release that broke something for you.
+`version` takes `0.78.1` or `v0.78.1`, and installs the newest release when left at `latest`. Pin it when you want every
+run to install the same client, or to hold back a release that broke something for you.
 
 If the runner already carries a NetBird client, that one is kept: the action warns and does not replace it.
 
