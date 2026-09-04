@@ -1,4 +1,4 @@
-name: 'Easy NetBird Connect'
+name: 'Setup NetBird'
 description: 'Install the NetBird client on an Ubuntu runner and join your network with a setup key.'
 author: 'ankurk91'
 

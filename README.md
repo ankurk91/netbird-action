@@ -1,7 +1,11 @@
-# NetBird Action
+# Setup NetBird
+
+<img src="https://raw.githubusercontent.com/ankurk91/netbird-action/main/.github/banner.jpg"
+  alt="NetBird GitHub Action - connect a workflow runner to your NetBird network" width="640">
 
 [![tests](https://github.com/ankurk91/netbird-action/actions/workflows/tests.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
 [![lint](https://github.com/ankurk91/netbird-action/actions/workflows/lint.yaml/badge.svg)](https://github.com/ankurk91/netbird-action/actions)
+[![marketplace](https://img.shields.io/badge/marketplace-setup--netbird-blue?logo=github)](https://github.com/marketplace/actions/setup-netbird)
 
 A GitHub Action that installs the [NetBird](https://netbird.io) client on an Ubuntu runner and joins your network with a
 setup key, so the rest of the job can reach your private peers. It can also route the runner's traffic through an exit
