@@ -102,7 +102,7 @@ runner needs passwordless `sudo`, which GitHub-hosted runners have — the clien
 
 ## Client version
 
-`version` takes `0.77.1` or `v0.77.1`, and installs the newest release when left at `latest`. Pin it when you want
+`version` takes `0.78.1` or `v0.78.1`, and installs the newest release when left at `latest`. Pin it when you want
 every run to install the same client, or to hold back a release that broke something for you.
 
 If the runner already carries a NetBird client, that one is kept: the action warns and does not replace it.

@@ -83,8 +83,8 @@ jobs:
           # A real release that is not the newest, so a pass means the pin was
           # honoured rather than quietly ignored.
           - name: 'pinned'
-            version: '0.76.3'
-            expected: '0.76.3'
+            version: '0.77.1'
+            expected: '0.77.1'
 
     steps:
       - name: Checkout code

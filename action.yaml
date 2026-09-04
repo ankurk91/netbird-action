@@ -27,7 +27,7 @@ inputs:
     required: false
     default: ''
   version:
-    description: 'NetBird client release to install, such as 0.77.1. Defaults to the newest release.'
+    description: 'NetBird client release to install, such as 0.78.1. Defaults to the newest release.'
     required: false
     default: 'latest'
   github-token:

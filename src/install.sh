@@ -15,7 +15,7 @@ if [ "${RUNNER_OS:-Linux}" != 'Linux' ]; then
   exit 1
 fi
 
-# Releases are tagged 'v0.77.1', but asking for the version as '0.77.1' is the
+# Releases are tagged 'v0.78.1', but asking for the version as '0.78.1' is the
 # more natural way to write it, so take either.
 if [ "$VERSION" != 'latest' ]; then
   case "$VERSION" in
@@ -24,7 +24,7 @@ if [ "$VERSION" != 'latest' ]; then
   esac
 
   if ! printf '%s' "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "::error::input 'version' must be 'latest' or a release such as '0.77.1', got '${INPUT_VERSION}'"
+    echo "::error::input 'version' must be 'latest' or a release such as '0.78.1', got '${INPUT_VERSION}'"
     exit 1
   fi
 fi
