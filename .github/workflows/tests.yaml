@@ -56,6 +56,14 @@ jobs:
           PEER_HOSTNAME: gh-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash .github/e2e/assert-connected.sh
 
+      # Runs while the throwaway server is still up, so the assertion can ask it
+      # whether the peer is really gone rather than only asking the client.
+      - name: Assert the cleanup took the runner back off
+        env:
+          NETBIRD_IP: ${{ steps.netbird.outputs.netbird-ip }}
+          NETBIRD_PAT: ${{ steps.server.outputs.pat }}
+        run: bash .github/e2e/assert-cleaned.sh
+
       - name: Show the server side
         if: always()
         run: docker logs --tail 100 netbird-server

@@ -43,6 +43,14 @@ public_ip() {
   curl -4 -s --connect-timeout 5 --max-time 10 https://api.ipify.org || echo 'unavailable'
 }
 
+# Read by the post step at the end of the job. See install.sh for why a missing
+# GITHUB_STATE is not an error.
+save_state() {
+  if [ -n "${GITHUB_STATE:-}" ]; then
+    printf '%s=%s\n' "$1" "$2" >> "$GITHUB_STATE"
+  fi
+}
+
 # The action fills this in from the run it belongs to, so it is only ever empty
 # when someone passes an empty string deliberately - which means the client
 # falls back to the runner's own hostname.
@@ -72,6 +80,18 @@ fi
 # Whitespace is the only separator here, so an argument cannot contain one.
 read -r -a extra_args <<< "$EXTRA_ARGS"
 up_args+=("${extra_args[@]}")
+
+# A runner that manages its own client is already on a network, and the login
+# below replaces that session rather than adding to it. The cleanup cannot put it
+# back, so it says so instead of leaving the runner quietly off its own network.
+if sudo netbird status --check startup > /dev/null 2>&1; then
+  save_state NB_WAS_LOGGED_IN true
+fi
+
+# Recorded before the login rather than after it, because a login that fails
+# part-way can still have registered the peer, and that is exactly the case where
+# leaving it behind would matter.
+save_state NB_CONNECTED true
 
 echo "=== Connecting as '${PEER_HOSTNAME:-$(hostname)}' ==="
 sudo netbird up "${up_args[@]}"
@@ -130,6 +150,7 @@ if [ -n "$EXIT_NODE" ]; then
   # Replaces the current selection, so from here the runner's traffic for that
   # network - the whole internet, for an exit node - goes through it.
   sudo netbird routes select "$EXIT_NODE"
+  save_state NB_EXIT_NODE "$EXIT_NODE"
   echo 'exit node selected'
 fi
 

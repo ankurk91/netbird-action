@@ -14,9 +14,25 @@ DAEMON_TIMEOUT=30
 # connect step wait on it rather than on the wording of the status report.
 MIN_VERSION='0.67.0'
 
+# What the post step reads to work out how much of this runner is the action's to
+# take away again. GITHUB_STATE is unset when this script is run on its own,
+# which the tests do, so a note that goes nowhere is not an error.
+save_state() {
+  if [ -n "${GITHUB_STATE:-}" ]; then
+    printf '%s=%s\n' "$1" "$2" >> "$GITHUB_STATE"
+  fi
+}
+
 if [ "${RUNNER_OS:-Linux}" != 'Linux' ]; then
   echo "::error::this action supports Linux runners only, this one is ${RUNNER_OS}"
   exit 1
+fi
+
+# Asked before anything below changes the runner, because the cleanup at the end
+# of the job has to put back what was here rather than what it finds. Whether the
+# client itself was already here is recorded by the install below, as NB_INSTALLED.
+if command -v netbird > /dev/null && sudo netbird status --check live > /dev/null 2>&1; then
+  daemon_was_running=1
 fi
 
 # Releases are tagged 'v0.78.1', but asking for the version as '0.78.1' is the
@@ -36,6 +52,7 @@ fi
 echo "=== Installing the NetBird client (${VERSION}) ==="
 if command -v netbird > /dev/null; then
   echo "already installed ($(netbird version)), skipping"
+  save_state NB_INSTALLED false
 
   # A runner that brings its own client keeps it, so say so plainly rather than
   # let a pinned 'version' look like it was honoured.
@@ -64,6 +81,10 @@ else
   # NetBird repository and the apt-get update that follows, and it covers the
   # arm64 runners on the same path. There is no desktop here to put a UI on.
   NETBIRD_RELEASE="$VERSION" USE_BIN_INSTALL=true SKIP_UI_APP=true "$INSTALLER_DIR/install.sh"
+
+  # Only this branch put a client on the runner, so only this one gives the
+  # cleanup leave to take the whole install back out again.
+  save_state NB_INSTALLED true
 fi
 
 installed="$(netbird version)"
@@ -94,7 +115,13 @@ for i in $(seq "$DAEMON_TIMEOUT"); do
 
   # A binary install leaves the service registered but not always running.
   if [ "$i" -eq 1 ]; then
-    sudo netbird service start > /dev/null 2>&1 || true
+    # A client that was already here with its service down is one the cleanup
+    # has to put back down again, without touching the install itself. Recorded
+    # only if the start worked, so the cleanup does not report failing to stop a
+    # service that never came up.
+    if sudo netbird service start > /dev/null 2>&1 && [ -z "${daemon_was_running:-}" ]; then
+      save_state NB_SERVICE_STARTED true
+    fi
   fi
 
   sleep 1
