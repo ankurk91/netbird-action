@@ -8,8 +8,11 @@ API_URL="${API_URL:-http://localhost:8081}"
 echo '=== What the client reports ==='
 sudo netbird status
 
-if ! sudo netbird status | grep -q 'Management: Connected'; then
-  echo '::error::the peer is not connected to management'
+# The same health check the action waits on: management and signal connected,
+# and a relay available. The server-side check further down is what keeps this
+# from being the action grading its own work.
+if ! sudo netbird status --check startup; then
+  echo '::error::the peer did not pass the startup health check'
   exit 1
 fi
 

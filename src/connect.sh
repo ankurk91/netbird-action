@@ -85,10 +85,10 @@ trap - EXIT
 # peer that was merely registered.
 echo '=== Waiting for the peer to connect ==='
 for _ in $(seq "$TIMEOUT"); do
-  status="$(sudo netbird status 2>&1 || true)"
-
-  if printf '%s' "$status" | grep -q 'Management: Connected' &&
-    printf '%s' "$status" | grep -q 'Signal: Connected'; then
+  # 'startup' is management and signal both connected, plus a relay available
+  # when the network has any. It exits 0 or 1 and says which leg is missing, so
+  # nothing here depends on how the status report happens to be worded.
+  if check_error="$(sudo netbird status --check startup 2>&1)"; then
     connected=1
     break
   fi
@@ -97,7 +97,9 @@ for _ in $(seq "$TIMEOUT"); do
 done
 
 if [ -z "${connected:-}" ]; then
-  echo "::error::the peer did not reach the network within ${TIMEOUT}s. Check the setup key has not expired or hit its usage limit, and that the management URL is right."
+  # A GitHub annotation is one line, and the check writes its reason as its own.
+  reason="${check_error:-the daemon did not answer}"
+  echo "::error::the peer did not reach the network within ${TIMEOUT}s (${reason//$'\n'/ }). Check the setup key has not expired or hit its usage limit, and that the management URL is right."
   sudo netbird status -d -A || true
   exit 1
 fi

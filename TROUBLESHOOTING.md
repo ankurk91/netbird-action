@@ -14,13 +14,18 @@ It is off by default — see [Diagnostics](README.md#diagnostics) — so turn it
 
 ## The peer did not reach the network within 60s
 
-The client registered with the management service but never came up as connected. In order of likelihood:
+The client registered with the management service but never came up as connected. The error carries the reason the
+client gave — `management not connected`, `signal not connected`, or no relay available — so read that first. In order
+of likelihood:
 
 - **The setup key expired or hit its usage limit.** Check it under **Setup Keys** in the dashboard; a one-off key is
   spent after a single peer and a reusable one has a peer count. Rotate it and update the secret.
 - **The key is for a different management service.** A self-hosted deployment needs its `management-url` passed too.
 - **The management or signal service is unreachable from the runner.** Self-hosted only — a GitHub-hosted runner has to
   be able to reach both over the public internet.
+- **No relay is available.** The action waits for one when the network has any configured, because a peer without a
+  relay cannot fall back when a direct connection does not form. Self-hosted deployments are where this shows up:
+  check the relay is running and that the runner can reach the address the management service hands out for it.
 
 ## Exit node was never distributed to this peer
 
@@ -50,6 +55,16 @@ for the setup key so peers are removed once they stop talking to the management 
 
 The client installed but its service never started. Almost always a self-hosted runner without systemd — a container,
 typically. The client runs as a system service and needs an init system to run under.
+
+## This action needs netbird 0.67.0 or newer
+
+Both of the action's waits — for the daemon, and for the peer to reach the network — use `netbird status --check`, which
+NetBird added in 0.67.0. It exits 0 or 1 and names the leg that is missing, so the action reads a health check rather
+than matching English in the status report, which is wording NetBird is free to change in any release.
+
+So either `version` is pinned below `0.67.0`, or the runner already carried an older client — the action keeps a
+preinstalled one rather than replacing it, and warns when it does. Raise the pin, or remove the preinstalled client so
+the action installs its own. A client reporting something other than a release number, a self-built one, is left alone.
 
 ## Permission denied running the client
 
