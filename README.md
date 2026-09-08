@@ -19,8 +19,7 @@ node.
 1. In the NetBird dashboard, open Settings-> **Setup Keys** and create one for your runners:
 
 - **One-off** if a single job uses it, **reusable** otherwise.
-- Turn on **Ephemeral** so the peer is removed automatically once the job ends. Without it every run leaves a dead peer
-  behind.
+- Turn on **Ephemeral**. The action deregisters the peer automatically, but this is a good backstop.
 - Set a proper expiry
 - Give it a group your access policies already allow, so the runner can reach what it needs.
 
@@ -72,7 +71,7 @@ jobs:
           curl -s http://internal-service.netbird.cloud
 ```
 
-There is no disconnect step to add. With an ephemeral setup key the peer disappears on its own once the runner is gone.
+There is no disconnect step to add — see [Cleanup](#cleanup).
 
 > [!WARNING]
 > An exit node carries `0.0.0.0/0`, so the runner's connection to GitHub goes through it too. If the exit node cannot
@@ -102,10 +101,16 @@ This is the address the runner holds *on the overlay network* — what other pee
 public IP, and it does not change when an exit node is selected: an exit node changes where the runner's outbound
 traffic leaves from, not the address it answers on.
 
+## Cleanup
+
+When the job ends the action logs out of NetBird, on a failed job as much as a passing one. The peer leaves your
+dashboard and the runner is off your network again, so there is nothing to add to your workflow.
+
 ## Requirements
 
 An Ubuntu runner (`ubuntu-latest`, `ubuntu-24.04`, `ubuntu-26.04`, their `-arm` variants, or self-hosted Ubuntu). The
-runner needs passwordless `sudo`, which GitHub-hosted runners have — the client runs as a system service.
+runner needs passwordless `sudo`, which GitHub-hosted runners have — the client runs as a system service, and the
+post-job [cleanup](#cleanup) needs it too.
 
 NetBird client **0.67.0 or newer**. See [Client version](#client-version).
 

@@ -46,27 +46,8 @@ inputs:
 outputs:
   netbird-ip:
     description: "The runner's IPv4 address inside the NetBird network, e.g. 100.64.0.33."
-    value: ${{ steps.connect.outputs.netbird-ip }}
 
 runs:
-  using: 'composite'
-  steps:
-    - name: Install NetBird
-      shell: bash
-      run: bash "${GITHUB_ACTION_PATH}/src/install.sh"
-      env:
-        INPUT_VERSION: ${{ inputs.version }}
-        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
-
-    - name: Connect to NetBird
-      id: connect
-      shell: bash
-      run: bash "${GITHUB_ACTION_PATH}/src/connect.sh"
-      env:
-        INPUT_SETUP_KEY: ${{ inputs.setup-key }}
-        INPUT_MANAGEMENT_URL: ${{ inputs.management-url }}
-        INPUT_HOSTNAME: ${{ inputs.hostname }}
-        INPUT_EXIT_NODE: ${{ inputs.exit-node }}
-        INPUT_ARGS: ${{ inputs.args }}
-        INPUT_TIMEOUT: ${{ inputs.timeout }}
-        INPUT_DIAGNOSTICS: ${{ inputs.diagnostics }}
+  using: 'node24'
+  main: 'src/main.mjs'
+  post: 'src/post.mjs'

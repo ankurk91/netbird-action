@@ -48,8 +48,14 @@ Its NetBird IP works either way.
 
 ## Peers pile up in the dashboard
 
-Every run registers a new peer, and one that is not ephemeral stays after the runner is destroyed. Turn on **Ephemeral**
-for the setup key so peers are removed once they stop talking to the management service.
+Every run registers a new peer. The action's post-job step deregisters it when the job ends, so the usual cause is a run
+that never reached that step — a cancelled workflow, a runner killed outright, or a job that hit its timeout.
+
+Turn on **Ephemeral** for the setup key to catch those: an ephemeral peer is removed once it has been offline for ten
+minutes. A key that is not ephemeral leaves them in the dashboard to delete by hand.
+
+If peers pile up from runs that *did* finish, read the `Post` group for this action at the end of the job log — the
+cleanup says what it managed to do, and warns when it could not reach the management service to deregister.
 
 ## The NetBird daemon did not come up
 
