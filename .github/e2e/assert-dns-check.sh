@@ -20,7 +20,13 @@ if [ -z "$fqdn" ]; then
   exit 1
 fi
 
-echo "the peer calls itself $fqdn, and holds $NETBIRD_IP"
+# Present unless the workflow passed --disable-ipv6, and worth naming: the
+# resolver hands the v6 answer out ahead of the v4 one, so it is the address a
+# later step would actually use.
+netbird_ipv6="$(sudo netbird status -6 2> /dev/null || true)"
+netbird_ipv6="${netbird_ipv6%%/*}"
+
+echo "the peer calls itself $fqdn, and holds $NETBIRD_IP ${netbird_ipv6:-(no IPv6 overlay)}"
 
 # A name under the peer's own domain that nothing registered. NetBird answers
 # for that zone, so this is its NXDOMAIN rather than the public resolver's.
@@ -59,7 +65,11 @@ check() {
 echo '=== A name the network really publishes ==='
 # The whole point of the input: the peer's own name, resolved through NSS the
 # way a later step's curl would, and answering with its address on the overlay.
-check 'the peer resolves its own name to its own overlay address' 0 "$fqdn resolved to $NETBIRD_IP" \
+# Not pinned to a single address: with an IPv6 overlay in play the name answers
+# in both families, and which one is printed first is the resolver's business.
+check 'the peer resolves its own name' 0 "$fqdn resolved to" \
+  INPUT_DNS_HOSTNAMES="$fqdn" INPUT_TIMEOUT=30
+check 'and the answer holds its overlay address' 0 "$NETBIRD_IP" \
   INPUT_DNS_HOSTNAMES="$fqdn" INPUT_TIMEOUT=30
 
 check 'the same list written over several lines is read in full' 0 "resolved to $NETBIRD_IP" \
@@ -79,6 +89,29 @@ check 'a public answer is refused while private addresses are required' 1 'resol
 
 check 'the same name passes once private addresses are not required' 0 'example.com resolved to' \
   INPUT_DNS_HOSTNAMES='example.com' INPUT_DNS_REQUIRE_PRIVATE=false INPUT_TIMEOUT=15
+
+# The guard has to look at both families or the v6 half of a dual-stack answer
+# goes unexamined - and that is the half the resolver offers first. Only worth
+# asserting when the peer really got a v6 address, which is what --disable-ipv6
+# takes away.
+if [ -n "$netbird_ipv6" ]; then
+  echo '=== The IPv6 half of the answer ==='
+
+  case "${netbird_ipv6,,}" in
+    fc* | fd*)
+      echo "ok - the overlay address $netbird_ipv6 is unique local, which is what the guard treats as inside"
+      ;;
+    *)
+      echo "::error::the overlay address $netbird_ipv6 is not unique local, so dns-check.sh would refuse the peer's own name"
+      failures=$((failures + 1))
+      ;;
+  esac
+
+  check 'the peer resolves its own name in both families' 0 "$netbird_ipv6" \
+    INPUT_DNS_HOSTNAMES="$fqdn" INPUT_TIMEOUT=30
+else
+  echo 'the peer has no IPv6 overlay address, so there is no v6 half to check'
+fi
 
 echo '=== Nothing asked for ==='
 check 'a workflow that sets no names does nothing' 0 '' \

@@ -64,7 +64,7 @@ jobs:
           args: ''
           # Client release to install. Pin it to keep runs reproducible.
           version: latest
-          # Budget for each wait: the peer, the exit node route, and the DNS names.
+          # Budget per wait: the peer, the exit node route, all the DNS names together.
           timeout: 60
           diagnostics: false
 
@@ -94,7 +94,7 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 | `args`                | no       | —                            | Extra flags appended to `netbird up`, split on whitespace.                                   |
 | `version`             | no       | `latest`                     | Client release to install. See [Client version](#client-version).                            |
 | `github-token`        | no       | `${{ github.token }}`        | Raises the API rate limit when `version` is pinned. Only sent then.                          |
-| `timeout`             | no       | `60`                         | Seconds allowed for each wait: the peer, the exit node route, the `dns-hostnames` names.     |
+| `timeout`             | no       | `60`                         | Seconds for each wait: the peer, the exit node route, all `dns-hostnames` together.          |
 | `diagnostics`         | no       | `false`                      | Print the peer state to the job log. See [Diagnostics](#diagnostics).                        |
 
 ## Outputs
@@ -131,11 +131,14 @@ Commas, spaces and newlines all separate, so a longer list can be written as a b
       postgres.netbird.cloud
 ```
 
-Hostnames only — a scheme, a port or a path is refused outright rather than waited on and reported later as a name that
-would not resolve.
+Hostnames only — a scheme, a port, a path or a bare IP address is refused outright rather than waited on and reported
+later as a name that would not resolve. An address resolves to itself, so waiting on one would prove nothing.
 
 Names are resolved with `getent`, which goes through the same resolver path `curl` and everything else on the runner
-takes — so a pass means the runner can really resolve the name, not just that NetBird reports a nameserver.
+takes — so a pass means the runner can really resolve the name, not just that NetBird reports a nameserver. Both address
+families are checked: NetBird gives every peer an IPv6 overlay address unless you pass `--disable-ipv6`, and since the
+resolver hands out the IPv6 answer first, a name whose AAAA record points off the network would otherwise slip through
+on the strength of its A record.
 
 ### Why the address has to be private
 
@@ -144,9 +147,15 @@ answer first while NetBird's zone is still settling, and then the name resolves 
 after this one leaves the mesh to reach it and says nothing about having done so, which usually surfaces later as a
 confusing `403` from an API that was supposed to be internal.
 
-So `dns-require-private` is on by default, and a name only counts as ready once **every** address it resolves to is
-inside the NetBird range (`100.64.0.0/10`) or RFC 1918 (`10/8`, `172.16/12`, `192.168/16`). Until then the action keeps
-waiting, and on timeout it says which name answered with which public address.
+So `dns-require-private` is on by default, and a name only counts as ready once **every** address it resolves to is a
+private one: the NetBird range (`100.64.0.0/10`), RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), or — for IPv6 — a unique
+local address (`fc00::/7`). Until then the action keeps waiting, and on timeout it says which name answered with which
+public address.
+
+What it checks is that the answer is **not publicly routable**. That is not the same as proving the address is reached
+*through NetBird*: a runner may already have a route to `10.0.0.0/8` of its own, or another VPN may own it. The check
+catches a name escaping to the public internet, which is the failure that goes unnoticed; it does not audit which
+private network the answer belongs to.
 
 Turn it off for a name that is *meant* to answer with a public address — one reached through an
 [exit node](#usage), typically:
@@ -156,9 +165,9 @@ Turn it off for a name that is *meant* to answer with a public address — one r
     dns-require-private: false
 ```
 
-Each name gets up to `timeout` seconds. A name that never resolves is more often a configuration problem than a slow
-one: check that NetBird DNS is enabled for this peer's group, and that the name really belongs to a zone the peer is
-given.
+All the names share one `timeout` between them, not one each. A name that never resolves is more often a configuration
+problem than a slow one: check that NetBird DNS is enabled for this peer's group, and that the name really belongs to a
+zone the peer is given.
 
 ## Cleanup
 

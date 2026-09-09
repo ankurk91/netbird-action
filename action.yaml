@@ -27,7 +27,7 @@ inputs:
     required: false
     default: ''
   dns-require-private:
-    description: 'Only accept a `dns-hostnames` name once every address it resolves to is private - the NetBird range 100.64.0.0/10, or RFC 1918. Set this false for a name that legitimately answers with a public address, such as one reached through an exit node.'
+    description: 'Reject a `dns-hostnames` answer that is publicly routable, in either address family - so every address must be in the NetBird range 100.64.0.0/10, RFC 1918, or IPv6 unique local fc00::/7. Set this false for a name that legitimately answers with a public address, such as one reached through an exit node.'
     required: false
     default: 'true'
   args:
@@ -43,7 +43,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   timeout:
-    description: 'Seconds to wait for the peer to connect, for the exit node route to reach it, and for the `dns-hostnames` names to resolve. Each wait gets its own budget.'
+    description: 'Seconds allowed for each wait: the peer connecting, the exit node route reaching it, and the `dns-hostnames` resolving. The names share the third between them rather than getting one each.'
     required: false
     default: '60'
   diagnostics:

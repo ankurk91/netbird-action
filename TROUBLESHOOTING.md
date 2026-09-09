@@ -58,13 +58,21 @@ Which half of the message applies decides what to look at.
 peer's group, so check the `Nameservers` line as above. Otherwise the record does not exist: a peer is published under
 the name it registered with, not the name you expected it to have.
 
-**`resolved outside the network`** — the name answered, with a public address. That is the split-horizon case: the name
-exists in public DNS as well as in a NetBird zone, and public DNS won while NetBird's zone was still settling. Left
-alone it is worse than a failure, because the next step reaches the public endpoint and never says so — which tends to
-surface as a puzzling `403` from an API that was meant to be internal.
+**`resolved outside the network`** — the name answered, with a publicly routable address. That is the split-horizon
+case: the name exists in public DNS as well as in a NetBird zone, and public DNS won while NetBird's zone was still
+settling. Left alone it is worse than a failure, because the next step reaches the public endpoint and never says so —
+which tends to surface as a puzzling `403` from an API that was meant to be internal.
+
+If the address named in the message is an **IPv6** one, that is the same problem in the half of the answer that is
+easier to miss. NetBird gives every peer an IPv6 overlay address unless `--disable-ipv6` is passed, and the resolver
+offers the IPv6 answer before the IPv4 one — so a name whose A record is a tidy `100.64.x.x` while its AAAA record
+points at the public internet sends the next step out over the AAAA. Both families are checked for that reason.
 
 If the name is *meant* to answer publicly — one reached through an exit node, say — set `dns-require-private: false`. If
 it is not, the record is missing from the NetBird zone and the peer is falling back to public DNS.
+
+Note that this rejects answers that are *publicly routable*; it does not prove an address is reached through NetBird.
+A runner that already has its own route to an RFC 1918 range will satisfy the check on a name pointing into it.
 
 ## Peers pile up in the dashboard
 
