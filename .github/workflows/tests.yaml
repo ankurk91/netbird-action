@@ -56,6 +56,13 @@ jobs:
           PEER_HOSTNAME: gh-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash .github/e2e/assert-connected.sh
 
+      # Runs the action's own DNS wait against this network, so the input is
+      # exercised against a real resolver rather than only a stubbed one.
+      - name: Assert the DNS wait works here
+        env:
+          NETBIRD_IP: ${{ steps.netbird.outputs.netbird-ip }}
+        run: bash .github/e2e/assert-dns-check.sh
+
       # Runs while the throwaway server is still up, so the assertion can ask it
       # whether the peer is really gone rather than only asking the client.
       - name: Assert the cleanup took the runner back off
@@ -71,6 +78,21 @@ jobs:
       - name: Remove the server
         if: always()
         run: docker rm --force netbird-server
+
+  # What is left once the end-to-end job has covered the real resolver: answers
+  # no live network can be made to give, and input that never reaches DNS at
+  # all. Neither needs a server, so both run here in seconds rather than waiting
+  # on one to boot.
+  dns-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run the dns-check cases
+        run: bash .github/e2e/test-dns-check.sh
 
   # The e2e job above always installs whatever is newest, so the 'version' input
   # only gets exercised here. One architecture is enough: this is about which

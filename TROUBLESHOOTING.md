@@ -46,6 +46,26 @@ NetBird publishes peers under `.netbird.cloud` through its own nameserver. Check
 `netbird status` — if it reports none available, the nameserver group in the dashboard does not cover this peer's group.
 Its NetBird IP works either way.
 
+Connecting is not the same as resolving, and the action's own wait covers only the first: management, signal and a
+relay. Set [`dns-hostnames`](README.md#waiting-for-dns) to the names the job depends on and the action will wait for those
+too, instead of leaving the next step to fail on a name that was not ready yet.
+
+## DNS was not ready within 60s
+
+Which half of the message applies decides what to look at.
+
+**`did not resolve`** — the name never answered. Usually the nameserver group in the dashboard does not cover this
+peer's group, so check the `Nameservers` line as above. Otherwise the record does not exist: a peer is published under
+the name it registered with, not the name you expected it to have.
+
+**`resolved outside the network`** — the name answered, with a public address. That is the split-horizon case: the name
+exists in public DNS as well as in a NetBird zone, and public DNS won while NetBird's zone was still settling. Left
+alone it is worse than a failure, because the next step reaches the public endpoint and never says so — which tends to
+surface as a puzzling `403` from an API that was meant to be internal.
+
+If the name is *meant* to answer publicly — one reached through an exit node, say — set `dns-require-private: false`. If
+it is not, the record is missing from the NetBird zone and the peer is falling back to public DNS.
+
 ## Peers pile up in the dashboard
 
 Every run registers a new peer. The action's post-job step deregisters it when the job ends, so the usual cause is a run

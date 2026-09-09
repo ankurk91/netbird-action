@@ -17,6 +17,8 @@ const INPUTS = [
   'management-url',
   'hostname',
   'exit-node',
+  'dns-hostnames',
+  'dns-require-private',
   'args',
   'timeout',
   'diagnostics',
@@ -31,7 +33,7 @@ for (const name of INPUTS) {
   env[key.replaceAll('-', '_')] = process.env[key] ?? '';
 }
 
-for (const script of ['install.sh', 'connect.sh']) {
+for (const script of ['install.sh', 'connect.sh', 'dns-check.sh']) {
   const { status, error } = spawnSync('bash', [join(import.meta.dirname, script)], {
     stdio: 'inherit',
     env,

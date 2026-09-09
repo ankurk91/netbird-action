@@ -31,7 +31,7 @@ node.
 ## Usage
 
 The only input you need is `setup-key`. Everything else below is optional and shown at its default, apart from
-`exit-node`, which does nothing until you set it:
+`exit-node` and `dns-hostnames`, which do nothing until you set them:
 
 ```yaml
 name: Testing
@@ -56,11 +56,15 @@ jobs:
           hostname: gh-${{ github.run_id }}-${{ github.run_attempt }}
           # Network ID of the route to send traffic through. Off when empty.
           exit-node: ${{ vars.NETBIRD_EXIT_NODE_ID }}
+          # Names that must resolve before this step finishes. Off when empty.
+          dns-hostnames: ''
+          # Only accept an address inside the network, see the section below.
+          dns-require-private: true
           # Appended to `netbird up`, split on whitespace.
           args: ''
           # Client release to install. Pin it to keep runs reproducible.
           version: latest
-          # Seconds to wait for the peer to connect, and for the exit node route.
+          # Budget for each wait: the peer, the exit node route, and the DNS names.
           timeout: 60
           diagnostics: false
 
@@ -79,17 +83,19 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 
 ## Inputs
 
-| Input            | Required | Default                      | Description                                                                       |
-|------------------|----------|------------------------------|-----------------------------------------------------------------------------------|
-| `setup-key`      | **yes**  | —                            | Setup key from the dashboard. Always pass this from a secret.                     |
-| `management-url` | no       | `https://api.netbird.io:443` | Management service URL. Set this when you self-host NetBird.                      |
-| `hostname`       | no       | `gh-<run id>-<run attempt>`  | Peer name shown in the dashboard.                                                 |
-| `exit-node`      | no       | —                            | Network ID to route through. The route must be distributed to this peer's group.  |
-| `args`           | no       | —                            | Extra flags appended to `netbird up`, split on whitespace.                        |
-| `version`        | no       | `latest`                     | Client release to install. See [Client version](#client-version).                 |
-| `github-token`   | no       | `${{ github.token }}`        | Raises the API rate limit when `version` is pinned. Only sent then.               |
-| `timeout`        | no       | `60`                         | Seconds to wait for the peer to connect, and for the exit node route to reach it. |
-| `diagnostics`    | no       | `false`                      | Print the peer state to the job log. See [Diagnostics](#diagnostics).             |
+| Input                 | Required | Default                      | Description                                                                                  |
+|-----------------------|----------|------------------------------|----------------------------------------------------------------------------------------------|
+| `setup-key`           | **yes**  | —                            | Setup key from the dashboard. Always pass this from a secret.                                |
+| `management-url`      | no       | `https://api.netbird.io:443` | Management service URL. Set this when you self-host NetBird.                                 |
+| `hostname`            | no       | `gh-<run id>-<run attempt>`  | Peer name shown in the dashboard.                                                            |
+| `exit-node`           | no       | —                            | Network ID to route through. The route must be distributed to this peer's group.             |
+| `dns-hostnames`       | no       | —                            | Names that must resolve before the action finishes. See [Waiting for DNS](#waiting-for-dns). |
+| `dns-require-private` | no       | `true`                       | Only accept a `dns-hostnames` name once every address it resolves to is private.             |
+| `args`                | no       | —                            | Extra flags appended to `netbird up`, split on whitespace.                                   |
+| `version`             | no       | `latest`                     | Client release to install. See [Client version](#client-version).                            |
+| `github-token`        | no       | `${{ github.token }}`        | Raises the API rate limit when `version` is pinned. Only sent then.                          |
+| `timeout`             | no       | `60`                         | Seconds allowed for each wait: the peer, the exit node route, the `dns-hostnames` names.     |
+| `diagnostics`         | no       | `false`                      | Print the peer state to the job log. See [Diagnostics](#diagnostics).                        |
 
 ## Outputs
 
@@ -100,6 +106,59 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 This is the address the runner holds *on the overlay network* — what other peers use to reach it. It is not the runner's
 public IP, and it does not change when an exit node is selected: an exit node changes where the runner's outbound
 traffic leaves from, not the address it answers on.
+
+## Waiting for DNS
+
+The action always waits for the peer itself: management and signal connected, and a relay available when the network has
+one. That is the control plane, and it says nothing about DNS. A job whose next step reaches a peer *by name* rather
+than by address can still fail on the line right after this action, while the peer is perfectly connected.
+
+`dns-hostnames` closes that gap. Give it the names the job actually depends on and the action will not finish until they
+resolve:
+
+```yaml
+- uses: ankurk91/netbird-action@v1
+  with:
+    setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
+    dns-hostnames: postgres.netbird.cloud, internal-service.netbird.cloud
+```
+
+Commas, spaces and newlines all separate, so a longer list can be written as a block:
+
+```yaml
+    dns-hostnames: |
+      internal-service.netbird.cloud
+      postgres.netbird.cloud
+```
+
+Hostnames only — a scheme, a port or a path is refused outright rather than waited on and reported later as a name that
+would not resolve.
+
+Names are resolved with `getent`, which goes through the same resolver path `curl` and everything else on the runner
+takes — so a pass means the runner can really resolve the name, not just that NetBird reports a nameserver.
+
+### Why the address has to be private
+
+Resolving is not enough on a split-horizon name — one that exists in public DNS *and* in a NetBird zone. Public DNS can
+answer first while NetBird's zone is still settling, and then the name resolves to the far side of the network: the step
+after this one leaves the mesh to reach it and says nothing about having done so, which usually surfaces later as a
+confusing `403` from an API that was supposed to be internal.
+
+So `dns-require-private` is on by default, and a name only counts as ready once **every** address it resolves to is
+inside the NetBird range (`100.64.0.0/10`) or RFC 1918 (`10/8`, `172.16/12`, `192.168/16`). Until then the action keeps
+waiting, and on timeout it says which name answered with which public address.
+
+Turn it off for a name that is *meant* to answer with a public address — one reached through an
+[exit node](#usage), typically:
+
+```yaml
+    dns-hostnames: api.example.com
+    dns-require-private: false
+```
+
+Each name gets up to `timeout` seconds. A name that never resolves is more often a configuration problem than a slow
+one: check that NetBird DNS is enabled for this peer's group, and that the name really belongs to a zone the peer is
+given.
 
 ## Cleanup
 

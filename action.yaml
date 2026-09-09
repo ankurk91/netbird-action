@@ -22,6 +22,14 @@ inputs:
     description: 'Network (route) ID to send traffic through once connected. Empty leaves the distributed routes as they are.'
     required: false
     default: ''
+  dns-hostnames:
+    description: 'Hostnames that must resolve before the action finishes, separated by commas or whitespace. Empty skips the check.'
+    required: false
+    default: ''
+  dns-require-private:
+    description: 'Only accept a `dns-hostnames` name once every address it resolves to is private - the NetBird range 100.64.0.0/10, or RFC 1918. Set this false for a name that legitimately answers with a public address, such as one reached through an exit node.'
+    required: false
+    default: 'true'
   args:
     description: 'Extra flags appended to `netbird up`, split on whitespace.'
     required: false
@@ -35,7 +43,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   timeout:
-    description: 'Seconds to wait for the peer to connect, and for the exit node route to reach it.'
+    description: 'Seconds to wait for the peer to connect, for the exit node route to reach it, and for the `dns-hostnames` names to resolve. Each wait gets its own budget.'
     required: false
     default: '60'
   diagnostics:
