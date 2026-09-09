@@ -58,13 +58,13 @@ jobs:
           exit-node: ${{ vars.NETBIRD_EXIT_NODE_ID }}
           # Names that must resolve before this step finishes. Off when empty.
           dns-hostnames: ''
-          # Only accept an address inside the network, see the section below.
+          # Only accept addresses inside your network.
           dns-require-private: true
-          # Appended to `netbird up`, split on whitespace.
+          # Extra flags for the NetBird client.
           args: ''
           # Client release to install. Pin it to keep runs reproducible.
           version: latest
-          # Budget per wait: the peer, the exit node route, all the DNS names together.
+          # How long to wait for the peer, the route and the DNS names.
           timeout: 60
           diagnostics: false
 
@@ -90,11 +90,11 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 | `hostname`            | no       | `gh-<run id>-<run attempt>`  | Peer name shown in the dashboard.                                                            |
 | `exit-node`           | no       | —                            | Network ID to route through. The route must be distributed to this peer's group.             |
 | `dns-hostnames`       | no       | —                            | Names that must resolve before the action finishes. See [Waiting for DNS](#waiting-for-dns). |
-| `dns-require-private` | no       | `true`                       | Only accept a `dns-hostnames` name once every address it resolves to is private.             |
+| `dns-require-private` | no       | `true`                       | Only accept a `dns-hostnames` name that points inside your network.                          |
 | `args`                | no       | —                            | Extra flags appended to `netbird up`, split on whitespace.                                   |
 | `version`             | no       | `latest`                     | Client release to install. See [Client version](#client-version).                            |
 | `github-token`        | no       | `${{ github.token }}`        | Raises the API rate limit when `version` is pinned. Only sent then.                          |
-| `timeout`             | no       | `60`                         | Seconds for each wait: the peer, the exit node route, all `dns-hostnames` together.          |
+| `timeout`             | no       | `60`                         | Seconds to wait for the peer, the exit node route, and the DNS names.                        |
 | `diagnostics`         | no       | `false`                      | Print the peer state to the job log. See [Diagnostics](#diagnostics).                        |
 
 ## Outputs
@@ -103,18 +103,13 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 |--------------|---------------------------------------------------------------------------|
 | `netbird-ip` | The runner's IPv4 address inside the NetBird network, e.g. `100.64.0.33`. |
 
-This is the address the runner holds *on the overlay network* — what other peers use to reach it. It is not the runner's
-public IP, and it does not change when an exit node is selected: an exit node changes where the runner's outbound
-traffic leaves from, not the address it answers on.
+This is the runner's address *inside your network* — what your other peers use to reach it. It is not the runner's
+public IP.
 
 ## Waiting for DNS
 
-The action always waits for the peer itself: management and signal connected, and a relay available when the network has
-one. That is the control plane, and it says nothing about DNS. A job whose next step reaches a peer *by name* rather
-than by address can still fail on the line right after this action, while the peer is perfectly connected.
-
-`dns-hostnames` closes that gap. Give it the names the job actually depends on and the action will not finish until they
-resolve:
+Being connected is not the same as being able to resolve your private hostnames. If the next step in your job reaches a
+service *by name*, list those names and the action waits until they work before it hands over:
 
 ```yaml
 - uses: ankurk91/netbird-action@v1
@@ -123,51 +118,12 @@ resolve:
     dns-hostnames: postgres.netbird.cloud, internal-service.netbird.cloud
 ```
 
-Commas, spaces and newlines all separate, so a longer list can be written as a block:
+By default a name only counts as ready once it points *inside* your network, so a step cannot quietly talk to a public
+endpoint when it meant to reach a private one. Set `dns-require-private: false` for a name that is supposed to answer
+publicly.
 
-```yaml
-    dns-hostnames: |
-      internal-service.netbird.cloud
-      postgres.netbird.cloud
-```
-
-Hostnames only — a scheme, a port, a path or a bare IP address is refused outright rather than waited on and reported
-later as a name that would not resolve. An address resolves to itself, so waiting on one would prove nothing.
-
-Names are resolved with `getent`, which goes through the same resolver path `curl` and everything else on the runner
-takes — so a pass means the runner can really resolve the name, not just that NetBird reports a nameserver. Both address
-families are checked: NetBird gives every peer an IPv6 overlay address unless you pass `--disable-ipv6`, and since the
-resolver hands out the IPv6 answer first, a name whose AAAA record points off the network would otherwise slip through
-on the strength of its A record.
-
-### Why the address has to be private
-
-Resolving is not enough on a split-horizon name — one that exists in public DNS *and* in a NetBird zone. Public DNS can
-answer first while NetBird's zone is still settling, and then the name resolves to the far side of the network: the step
-after this one leaves the mesh to reach it and says nothing about having done so, which usually surfaces later as a
-confusing `403` from an API that was supposed to be internal.
-
-So `dns-require-private` is on by default, and a name only counts as ready once **every** address it resolves to is a
-private one: the NetBird range (`100.64.0.0/10`), RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), or — for IPv6 — a unique
-local address (`fc00::/7`). Until then the action keeps waiting, and on timeout it says which name answered with which
-public address.
-
-What it checks is that the answer is **not publicly routable**. That is not the same as proving the address is reached
-*through NetBird*: a runner may already have a route to `10.0.0.0/8` of its own, or another VPN may own it. The check
-catches a name escaping to the public internet, which is the failure that goes unnoticed; it does not audit which
-private network the answer belongs to.
-
-Turn it off for a name that is *meant* to answer with a public address — one reached through an
-[exit node](#usage), typically:
-
-```yaml
-    dns-hostnames: api.example.com
-    dns-require-private: false
-```
-
-All the names share one `timeout` between them, not one each. A name that never resolves is more often a configuration
-problem than a slow one: check that NetBird DNS is enabled for this peer's group, and that the name really belongs to a
-zone the peer is given.
+Without this the action still waits for the peer to connect — it just does not check that your names resolve. See
+[How it works](HOW-IT-WORKS.md#waiting-for-dns) for the details.
 
 ## Cleanup
 
@@ -185,34 +141,27 @@ NetBird client **0.67.0 or newer**. See [Client version](#client-version).
 ## Client version
 
 `version` takes `0.78.1` or `v0.78.1`, and installs the newest release when left at `latest`. Pin it when you want every
-run to install the same client, or to hold back a release that broke something for you. It has to be **0.67.0 or
-newer**, because the action's waits use `netbird status --check`, which NetBird added in that release.
+run to use the same client, or to hold back a release that broke something for you. The minimum is **0.67.0**.
 
 If the runner already carries a NetBird client, that one is kept: the action warns and does not replace it.
 
-Pinning also changes where the version is looked up. `latest` reads NetBird's own CDN, while a pinned tag is resolved
-through `api.github.com`, which allows 60 unauthenticated requests an hour per IP address. Hosted runners share egress
-addresses, so a busy account can reach that limit and watch installs start failing.
-
-So the action sends `github-token` when, and only when, you pin a version, which lifts the limit to 1000 requests an
-hour for the repository. It defaults to the workflow's own `GITHUB_TOKEN` and needs no setup. The `latest` path gains
-nothing from a token, so it never sees one.
+Pinning a version looks it up through the GitHub API, so the action quietly passes `github-token` to keep you clear of
+its rate limit. There is nothing to set up — see [How it works](HOW-IT-WORKS.md#client-version).
 
 ## Diagnostics
 
-With `diagnostics: true` the action prints the NetBird IP, `netbird status -d`, the networks the peer holds, the routing
-table, and the runner's public IP before and after connecting.
+`diagnostics: true` prints the peer's state to the job log, which is what you want while working out why a connection
+fails.
 
-It is off by default because that output describes your private network: every peer the runner can see, their addresses
-and hostnames, every route distributed to it. Job logs are visible to more people than the dashboard is. Turn it on
-while working out why a connection fails, then turn it back off.
-
-Failures print `netbird status -d` with NetBird's own anonymizer on, so a broken run is still diagnosable without
-diagnostics turned on.
+It is off by default because that output describes your private network — the peers the runner can see, their addresses,
+the routes it was given — and job logs are visible to more people than your dashboard is. Turn it on to debug, then turn
+it back off. Failures print an anonymised summary either way, so leaving it off does not leave you blind.
 
 ## Troubleshooting
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+Something not working? See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+Curious how any of this behaves under the hood? See [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
 
 ## License
 

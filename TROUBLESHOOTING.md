@@ -64,15 +64,14 @@ settling. Left alone it is worse than a failure, because the next step reaches t
 which tends to surface as a puzzling `403` from an API that was meant to be internal.
 
 If the address named in the message is an **IPv6** one, that is the same problem in the half of the answer that is
-easier to miss. NetBird gives every peer an IPv6 overlay address unless `--disable-ipv6` is passed, and the resolver
-offers the IPv6 answer before the IPv4 one — so a name whose A record is a tidy `100.64.x.x` while its AAAA record
-points at the public internet sends the next step out over the AAAA. Both families are checked for that reason.
+easier to miss: a name can have a tidy `100.64.x.x` A record while its AAAA record points at the public internet, and
+the AAAA is the one the next step would follow.
 
 If the name is *meant* to answer publicly — one reached through an exit node, say — set `dns-require-private: false`. If
 it is not, the record is missing from the NetBird zone and the peer is falling back to public DNS.
 
-Note that this rejects answers that are *publicly routable*; it does not prove an address is reached through NetBird.
-A runner that already has its own route to an RFC 1918 range will satisfy the check on a name pointing into it.
+What counts as inside the network, and why the check works this way, is in
+[How it works](HOW-IT-WORKS.md#why-the-address-has-to-be-private).
 
 ## Peers pile up in the dashboard
 
@@ -93,8 +92,7 @@ typically. The client runs as a system service and needs an init system to run u
 ## This action needs netbird 0.67.0 or newer
 
 Both of the action's waits — for the daemon, and for the peer to reach the network — use `netbird status --check`, which
-NetBird added in 0.67.0. It exits 0 or 1 and names the leg that is missing, so the action reads a health check rather
-than matching English in the status report, which is wording NetBird is free to change in any release.
+NetBird added in 0.67.0.
 
 So either `version` is pinned below `0.67.0`, or the runner already carried an older client — the action keeps a
 preinstalled one rather than replacing it, and warns when it does. Raise the pin, or remove the preinstalled client so
