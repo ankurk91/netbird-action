@@ -46,6 +46,10 @@ inputs:
     description: 'Seconds allowed for each wait: the peer connecting, the exit node route reaching it, and the `dns-hostnames` resolving. The names share the third between them rather than getting one each.'
     required: false
     default: '60'
+  cleanup:
+    description: 'Deregister the peer and undo the install when the job ends. Off by default: a hosted runner is discarded anyway, and an ephemeral setup key drops the peer from the dashboard on its own. Turn it on for self-hosted runners, whose machine outlives the job.'
+    required: false
+    default: 'false'
   diagnostics:
     description: 'Print the peer state to the job log: netbird status, the routes and the public IP before and after connecting. Off by default.'
     required: false

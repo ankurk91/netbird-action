@@ -18,12 +18,16 @@ node.
 
 1. In the NetBird dashboard, open Settings-> **Setup Keys** and create one for your runners:
 
+- Turn on **Ephemeral**. This is what takes the runner's peer out of your dashboard once the job is over.
 - **One-off** if a single job uses it, **reusable** otherwise.
-- Turn on **Ephemeral**. The action deregisters the peer automatically, but this is a good backstop.
 - Set a proper expiry
 - Give it a group your access policies already allow, so the runner can reach what it needs.
 
 2. Add the key as a repository secret named `NETBIRD_SETUP_KEY`.
+
+> [!IMPORTANT]
+> The key must be **ephemeral**. The action leaves the peer registered when the job ends — see [Cleanup](#cleanup) —
+> so without it every run adds a peer to your dashboard for you to delete by hand.
 
 > [!WARNING]
 > Never commit the setup key or pass it as a plain string — anyone holding it can register a peer on your network.
@@ -66,6 +70,8 @@ jobs:
           version: latest
           # How long to wait for the peer, the route and the DNS names.
           timeout: 60
+          # Undo everything when the job ends. Only needed on self-hosted.
+          cleanup: false
           diagnostics: false
 
       # From here the runner is a peer and can reach the others.
@@ -95,6 +101,7 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 | `version`             | no       | `latest`                     | Client release to install. See [Client version](#client-version).                            |
 | `github-token`        | no       | `${{ github.token }}`        | Raises the API rate limit when `version` is pinned. Only sent then.                          |
 | `timeout`             | no       | `60`                         | Seconds to wait for the peer, the exit node route, and the DNS names.                        |
+| `cleanup`             | no       | `false`                      | Undo everything when the job ends. See [Cleanup](#cleanup).                                  |
 | `diagnostics`         | no       | `false`                      | Print the peer state to the job log. See [Diagnostics](#diagnostics).                        |
 
 ## Outputs
@@ -126,8 +133,11 @@ Without this the action still waits for the peer to connect — it just does not
 
 ## Cleanup
 
-When the job ends the action logs out of NetBird, on a failed job as much as a passing one. The peer leaves your
-dashboard and the runner is off your network again, so there is nothing to add to your workflow.
+A GitHub-hosted runner is destroyed when the job ends, and your ephemeral setup key takes the peer out of the dashboard
+once it has been offline for ten minutes.
+
+Self-hosted runners are the exception, because the machine outlives the job — set `cleanup: true` there, or the next job
+on it inherits a network it never asked to join.
 
 ## Requirements
 

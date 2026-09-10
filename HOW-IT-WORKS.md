@@ -96,15 +96,15 @@ table, the runner's public IP before and after connecting, and — on a DNS fail
 
 Failures print `netbird status -d` with NetBird's own anonymizer on whether or not diagnostics are enabled, so a broken
 run stays diagnosable without turning the full output on. Note that the anonymizer masks public addresses and
-non-NetBird
-domains; it deliberately keeps private and CGNAT ranges, which are the ones you need in order to read the output at all.
+non-NetBird domains; it deliberately keeps private and CGNAT ranges, which are the ones you need to read the output.
 
 ## Cleanup
 
-When the job ends the action deregisters the peer, disconnects, and — if it installed the client itself — removes the
-service and the client configuration, including the peer's private key. On a GitHub-hosted runner none of that matters,
-since the machine is destroyed anyway. On a self-hosted runner it is the difference between one job's network access and
-every later job on that machine inheriting it.
+Off by default, so a registered peer, a connected daemon and the peer key under `/var/lib/netbird` outlive the job. On a
+hosted runner all of that dies with the machine and only the dashboard entry remains, which is why the setup key has to
+be ephemeral.
 
-Every step there is best effort: the job's work is already done by the time cleanup runs, so a step that cannot finish
-is a warning rather than a failure.
+`cleanup: true` deregisters the peer, disconnects, and removes the service and configuration if the action installed
+them. The binary stays — it holds nothing secret, and a self-hosted runner would re-download it every job. Every step is
+best effort, so one that cannot finish warns rather than fails. Only `false` and the default skip it; any other value
+cleans up and warns.

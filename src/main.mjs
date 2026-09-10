@@ -5,8 +5,8 @@
 // when the job ends rather than when this step does. Everything of substance
 // stays in the shell scripts next to this file.
 
-import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {join} from 'node:path';
 import process from 'node:process';
 
 // The runner hands a JavaScript action its inputs as INPUT_<NAME> with the
@@ -26,7 +26,7 @@ const INPUTS = [
   'github-token',
 ];
 
-const env = { ...process.env };
+const env = {...process.env};
 
 for (const name of INPUTS) {
   const key = `INPUT_${name.toUpperCase()}`;
@@ -41,7 +41,7 @@ const run = (script) => spawnSync('bash', [join(import.meta.dirname, script)], {
 let failure = 0;
 
 for (const script of ['install.sh', 'connect.sh', 'dns-check.sh']) {
-  const { status, error } = run(script);
+  const {status, error} = run(script);
 
   if (error) {
     console.log(`::error::cannot run ${script}: ${error.message}`);
