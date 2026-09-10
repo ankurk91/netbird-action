@@ -73,6 +73,9 @@ leaves from, not the address it answers on.
 
 ## Client version
 
+`version` accepts either form, `0.78.1` or `v0.78.1`. If the runner already carries a NetBird client the action keeps it
+rather than replacing it, and warns so a pin that was not honoured does not pass unnoticed.
+
 The action needs NetBird **0.67.0 or newer** because its waits use `netbird status --check`, which NetBird added in that
 release. That check exits 0 or 1 and names the leg that is missing, so the action reads a health check rather than
 matching English in the status report — wording NetBird is free to change in any release.
@@ -92,7 +95,8 @@ table, the runner's public IP before and after connecting, and — on a DNS fail
 `resolvectl status`.
 
 Failures print `netbird status -d` with NetBird's own anonymizer on whether or not diagnostics are enabled, so a broken
-run stays diagnosable without turning the full output on. Note that the anonymizer masks public addresses and non-NetBird
+run stays diagnosable without turning the full output on. Note that the anonymizer masks public addresses and
+non-NetBird
 domains; it deliberately keeps private and CGNAT ranges, which are the ones you need in order to read the output at all.
 
 ## Cleanup

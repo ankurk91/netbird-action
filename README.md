@@ -1,4 +1,4 @@
-# Setup NetBird
+# Setup NetBird (GitHub Action)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ankurk91/netbird-action/main/.github/banner.jpg?v=2"
@@ -118,12 +118,11 @@ service *by name*, list those names and the action waits until they work before 
     dns-hostnames: postgres.netbird.cloud, internal-service.netbird.cloud
 ```
 
-By default a name only counts as ready once it points *inside* your network, so a step cannot quietly talk to a public
+By default, a name only counts as ready once it points *inside* your network, so a step cannot quietly talk to a public
 endpoint when it meant to reach a private one. Set `dns-require-private: false` for a name that is supposed to answer
 publicly.
 
-Without this the action still waits for the peer to connect — it just does not check that your names resolve. See
-[How it works](HOW-IT-WORKS.md#waiting-for-dns) for the details.
+Without this the action still waits for the peer to connect — it just does not check that your names resolve.
 
 ## Cleanup
 
@@ -136,26 +135,19 @@ An Ubuntu runner (`ubuntu-latest`, `ubuntu-24.04`, `ubuntu-26.04`, their `-arm` 
 runner needs passwordless `sudo`, which GitHub-hosted runners have — the client runs as a system service, and the
 post-job [cleanup](#cleanup) needs it too.
 
-NetBird client **0.67.0 or newer**. See [Client version](#client-version).
+NetBird client **0.67.0 or newer**.
 
 ## Client version
 
-`version` takes `0.78.1` or `v0.78.1`, and installs the newest release when left at `latest`. Pin it when you want every
-run to use the same client, or to hold back a release that broke something for you. The minimum is **0.67.0**.
-
-If the runner already carries a NetBird client, that one is kept: the action warns and does not replace it.
-
-Pinning a version looks it up through the GitHub API, so the action quietly passes `github-token` to keep you clear of
-its rate limit. There is nothing to set up — see [How it works](HOW-IT-WORKS.md#client-version).
+Leave `version` at `latest` for the newest client, or pin it (`0.78.1`) to keep every run identical. The minimum is
+**0.67.0**. A client already installed on the runner is kept as it is.
 
 ## Diagnostics
 
-`diagnostics: true` prints the peer's state to the job log, which is what you want while working out why a connection
-fails.
+`diagnostics: true` prints the peer's state to the job log while you work out why a connection is failing.
 
-It is off by default because that output describes your private network — the peers the runner can see, their addresses,
-the routes it was given — and job logs are visible to more people than your dashboard is. Turn it on to debug, then turn
-it back off. Failures print an anonymised summary either way, so leaving it off does not leave you blind.
+It is off by default because that output describes your private network, and job logs reach more people than your
+dashboard does. Failures print an anonymised summary either way.
 
 ## Troubleshooting
 
