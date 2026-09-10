@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 # Wait until the names the job depends on resolve inside the network.
 #
-# `netbird status --check startup` - what connect.sh waits on - covers
-# management, signal and a relay. That is the control plane, and it says nothing
-# about DNS, so a step that reaches a peer by name rather than by address can
-# still fail on the line right after this action while the peer is perfectly
-# connected. This runs last, after the exit node is selected, so it sees the
-# network the way the rest of the job will.
+# `netbird status --check startup` covers management, signal and relay, not DNS -
+# a peer can be fully connected while a name still fails to resolve.
 #
-# Does nothing unless 'dns-hostnames' names something.
+# Must run after the exit node is selected, so it sees the network the job will.
 set -euo pipefail
 
 DNS_HOSTNAMES="${INPUT_DNS_HOSTNAMES:-}"
@@ -16,9 +12,8 @@ REQUIRE_PRIVATE="${INPUT_DNS_REQUIRE_PRIVATE:-true}"
 TIMEOUT="${INPUT_TIMEOUT:-60}"
 DIAGNOSTICS="${INPUT_DIAGNOSTICS:-false}"
 
-# Nothing asked for, so there is nothing to wait on. Checked before the inputs
-# below are validated: a workflow that never sets 'dns-hostnames' should not be
-# able to fail here at all.
+# Before the validation below: a workflow that never sets 'dns-hostnames' must
+# not be able to fail here.
 if [ -z "${DNS_HOSTNAMES//[[:space:],]/}" ]; then
   exit 0
 fi
@@ -43,27 +38,23 @@ if [ "$TIMEOUT" -lt 1 ]; then
   exit 1
 fi
 
-# Commas, spaces and newlines all separate, so the list reads the same written
-# on one line or as a YAML block. Splitting with `read -a` on its own would stop
-# at the first newline and go on to check only the names before it, which passes
-# while proving less than it was asked to.
+# Commas, spaces and newlines all separate. The `tr` matters: `read -a` alone
+# stops at the first newline and silently checks only the names before it.
 hosts=()
 declare -A seen=()
 
 read -r -a entries <<< "$(printf '%s' "$DNS_HOSTNAMES" | tr ',\n\t' '   ')"
 
 for entry in "${entries[@]}"; do
-  # A hostname and nothing else, so a URL, a 'host:port' or a stray quote is
-  # refused by name here rather than waited on and reported as a name that
-  # would not resolve.
+  # Refuse a URL or 'host:port' by name here, or the wait reports it as a name
+  # that would not resolve.
   if ! [[ $entry =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
     echo "::error::input 'dns-hostnames' contains '$entry', which is not a hostname. Pass the name on its own, without a scheme, port or path."
     exit 1
   fi
 
-  # An address is not a name: 'getent' hands it straight back without asking
-  # anything, so a literal here would sail through the wait having tested
-  # nothing. No top-level domain is all digits, which is what separates the two.
+  # getent hands an address straight back without a lookup, so a literal would
+  # pass the wait having tested nothing. No TLD is all digits - that splits them.
   if [[ ${entry##*.} =~ ^[0-9]+$ ]]; then
     echo "::error::input 'dns-hostnames' contains '$entry', which is an address rather than a hostname. There is nothing to wait for in an address - pass the name that resolves to it."
     exit 1
@@ -76,16 +67,13 @@ for entry in "${entries[@]}"; do
   fi
 done
 
-# What counts as inside: the NetBird range and RFC 1918 for v4, unique local
-# addresses for v6. NetBird gives every peer an IPv6 overlay address unless the
-# workflow passes '--disable-ipv6', and that address is unique local - the same
-# role fc00::/7 plays for v6 that RFC 1918 plays for v4.
+# Inside = NetBird's 100.64/10, RFC 1918, or IPv6 unique local. Peers get a ULA
+# overlay address too unless the workflow passes '--disable-ipv6'.
 is_private_address() {
   local first second
 
-  # Anything holding a colon is v6. Unique local is fc00::/7, so every address
-  # in it opens with fc or fd and nothing else does - not the global range, and
-  # not link-local or loopback, neither of which a peer is reachable on.
+  # fc00::/7 is exactly the addresses opening fc or fd. Link-local and loopback
+  # are excluded on purpose - a peer is not reachable on either.
   if [[ $1 == *:* ]]; then
     [[ ${1,,} =~ ^f[cd] ]] && return 0
     return 1
@@ -105,22 +93,15 @@ is_private_address() {
   return 1
 }
 
-# getent goes through NSS, the same path curl and everything else on the runner
-# takes, so this proves the thing a later step actually depends on. Querying a
-# nameserver directly would prove less, and would need a dig that is not on
-# every runner.
+# getent uses NSS, the same path as the rest of the job, so this proves what a
+# later step depends on.
 #
-# 'ahosts' rather than 'ahostsv4' asks for both families the way an application
-# does, which matters twice over. A name published only as AAAA would otherwise
-# read as one that never resolved; and a name answering with a private A beside
-# a public AAAA would pass the check below while the step after it followed the
-# AAAA - IPv6 being the address the resolver hands out first - straight off the
-# network. It also inherits AI_ADDRCONFIG, so a family the runner cannot use is
-# left out of the answer here exactly as it is for everything else.
+# 'ahosts' not 'ahostsv4': a name published only as AAAA would read as
+# unresolved, and a private A beside a public AAAA would pass while the next step
+# followed the AAAA off the network.
 #
-# The lookup is bounded by what is left of the deadline, because a name that
-# does not resolve holds the resolver for seconds and there may be a list of
-# them.
+# Capped at the remaining deadline - an unresolvable name holds the resolver for
+# seconds, and there may be a list of them.
 resolve_addresses() {
   local budget=$((deadline - SECONDS))
 
@@ -133,10 +114,8 @@ resolve_addresses() {
 
 echo '=== Waiting for DNS ==='
 
-# systemd-resolved caches a miss for as long as the zone's SOA asks it to, so a
-# name looked up before NetBird registered its domain can stay missing here long
-# past the point where it would answer. Best effort: a runner need not be
-# running resolved at all.
+# systemd-resolved caches a miss for the zone's SOA lifetime, so a name looked up
+# before NetBird registered its domain stays missing long after it would answer.
 sudo resolvectl flush-caches > /dev/null 2>&1 || true
 
 if [ "$REQUIRE_PRIVATE" = 'true' ]; then
@@ -148,12 +127,9 @@ fi
 declare -A reason=()
 pending=("${hosts[@]}")
 
-# A deadline rather than a count of passes, and one the pass itself respects. A
-# name that does not resolve holds the resolver for as long as it takes to give
-# up - seconds, not the instant a name that does resolve takes - so a list of
-# them would run well past 'timeout' if the clock were only read between passes.
-# It is read before every lookup instead, and each lookup is capped at what is
-# left, which is what makes the input a bound rather than a suggestion.
+# A deadline, not a pass count, and read before every lookup. An unresolvable
+# name holds the resolver for seconds, so a list of them would run well past
+# 'timeout' if the clock were only checked between passes.
 deadline=$((SECONDS + TIMEOUT))
 
 while true; do
@@ -161,11 +137,8 @@ while true; do
   expired=''
 
   for host in "${pending[@]}"; do
-    # Out of time part way through a pass. Asked before every lookup rather
-    # than after the pass, or a list of names that each hold the resolver would
-    # spend 'timeout' once per name. Whatever is left keeps what the last pass
-    # learned about it, so the error below still names everything it was asked
-    # to wait for.
+    # Checked per lookup, not per pass, or a list of slow names spends 'timeout'
+    # once each. Keeps the last pass's reason so the error still names every host.
     if [ -n "$expired" ] || [ "$SECONDS" -ge "$deadline" ]; then
       expired=1
       still_pending+=("$host")
@@ -181,10 +154,8 @@ while true; do
       continue
     fi
 
-    # Resolving is not enough on a split-horizon name. Public DNS can answer
-    # first while NetBird's zone is still settling, and then the name points at
-    # the far side of the network: the step after this one leaves the mesh to
-    # reach it, and says nothing about having done so.
+    # Split-horizon: public DNS can answer first while NetBird's zone settles,
+    # and the next step then leaves the mesh silently to reach it.
     if [ "$REQUIRE_PRIVATE" = 'true' ]; then
       public_ips=()
 
@@ -202,17 +173,16 @@ while true; do
     echo "$host resolved to ${ips[*]}"
   done
 
-  # The deadline can also fall during the last lookup of a pass, which the
-  # check above cannot see because there was no next name to ask about.
+  # The deadline can fall during a pass's last lookup - the check above cannot
+  # see that, there being no next name to ask about.
   if [ "$SECONDS" -ge "$deadline" ]; then
     expired=1
   fi
 
   pending=("${still_pending[@]}")
 
-  # Recorded rather than inferred from the clock below: a last pass that lands
-  # exactly on the deadline succeeded, and reading the time again would call it
-  # a timeout.
+  # Recorded, not inferred from the clock: a pass landing exactly on the deadline
+  # succeeded, and re-reading the time would call it a timeout.
   if [ "${#pending[@]}" -eq 0 ]; then
     ready=1
     break
@@ -232,18 +202,33 @@ if [ -z "${ready:-}" ]; then
     details+=("$host ${reason[$host]}")
   done
 
-  # A GitHub annotation is one line, so the per-name detail is joined into it
-  # rather than printed above it where it would be separated from the error.
+  # A GitHub annotation is one line, so per-name detail is joined into it.
   joined="$(printf '%s; ' "${details[@]}")"
 
   echo "::error::DNS was not ready within ${TIMEOUT}s: ${joined%; }. Check that NetBird DNS is on for this peer's group and that the name belongs to a NetBird zone. A name that is meant to answer with a public address needs 'dns-require-private: false'."
-  # Anonymised, the way every other failure path in this action reports. The
-  # resolver's own view is not anonymised at all - it lists the nameservers and
-  # the search domains the network handed out - so it waits to be asked for.
+
+  # Says which server answered. Ungated: unlike the resolver config below, this
+  # only names hosts the workflow itself asked for.
+  if command -v resolvectl > /dev/null; then
+    echo '::group::resolvectl query'
+    for host in "${pending[@]}"; do
+      resolvectl query "$host" || true
+    done
+    echo '::endgroup::'
+  fi
+
+  # Anonymised, like every failure path here. The resolver config below is not -
+  # it lists every nameserver handed out - so it stays behind 'diagnostics'.
   sudo netbird status -d -A || true
 
-  if [ "$DIAGNOSTICS" = 'true' ] && command -v resolvectl > /dev/null; then
-    resolvectl status || true
+  if [ "$DIAGNOSTICS" = 'true' ]; then
+    echo '::group::resolver configuration'
+    cat /etc/resolv.conf || true
+
+    if command -v resolvectl > /dev/null; then
+      resolvectl status || true
+    fi
+    echo '::endgroup::'
   fi
 
   exit 1
