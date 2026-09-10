@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Connect to the NetBird network
         id: netbird
-        uses: ankurk91/netbird-action@v1
+        uses: ankurk91/netbird-action@v2
         with:
           setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
           # Point this at your own deployment when you self-host.
