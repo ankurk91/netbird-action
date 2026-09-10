@@ -4,7 +4,7 @@ Most of these are quicker to diagnose with the action's diagnostics turned on, w
 `netbird status -d`, the networks the peer holds, the routes and the public IP before and after connecting:
 
 ```yaml
-- uses: ankurk91/netbird-action@v1
+- uses: ankurk91/netbird-action@v2
   with:
     setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
     diagnostics: true
@@ -89,10 +89,10 @@ cleanup says what it managed to do, and warns when it could not reach the manage
 The client installed but its service never started. Almost always a self-hosted runner without systemd — a container,
 typically. The client runs as a system service and needs an init system to run under.
 
-## This action needs netbird 0.67.0 or newer
+## This action needs netbird `0.67.0` or newer
 
 Both of the action's waits — for the daemon, and for the peer to reach the network — use `netbird status --check`, which
-NetBird added in 0.67.0.
+NetBird added in `0.67.0`.
 
 So either `version` is pinned below `0.67.0`, or the runner already carried an older client — the action keeps a
 preinstalled one rather than replacing it, and warns when it does. Raise the pin, or remove the preinstalled client so

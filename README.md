@@ -18,7 +18,7 @@ node.
 
 1. In the NetBird dashboard, open Settings-> **Setup Keys** and create one for your runners:
 
-- Turn on **Ephemeral**. This is what takes the runner's peer out of your dashboard once the job is over.
+- Turn on **Ephemeral Peers**. 
 - **One-off** if a single job uses it, **reusable** otherwise.
 - Set a proper expiry
 - Give it a group your access policies already allow, so the runner can reach what it needs.
@@ -141,11 +141,8 @@ on it inherits a network it never asked to join.
 
 ## Requirements
 
-An Ubuntu runner (`ubuntu-latest`, `ubuntu-24.04`, `ubuntu-26.04`, their `-arm` variants, or self-hosted Ubuntu). The
-runner needs passwordless `sudo`, which GitHub-hosted runners have — the client runs as a system service, and the
-post-job [cleanup](#cleanup) needs it too.
-
-NetBird client **0.67.0 or newer**.
+* An Ubuntu runner (`ubuntu-latest`, `ubuntu-24.04`, `ubuntu-26.04`, their `-arm` variants, or self-hosted Ubuntu).
+* NetBird client **0.67.0 or newer**.
 
 ## Client version
 
