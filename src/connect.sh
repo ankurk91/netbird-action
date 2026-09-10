@@ -4,7 +4,7 @@ set -euo pipefail
 
 SETUP_KEY="${INPUT_SETUP_KEY:-}"
 MANAGEMENT_URL="${INPUT_MANAGEMENT_URL:-https://api.netbird.io:443}"
-PEER_HOSTNAME="${INPUT_HOSTNAME:-}"
+PEER_NAME="${INPUT_PEER_NAME:-}"
 EXIT_NODE="${INPUT_EXIT_NODE:-}"
 EXTRA_ARGS="${INPUT_ARGS:-}"
 TIMEOUT="${INPUT_TIMEOUT:-60}"
@@ -54,9 +54,9 @@ save_state() {
 # The action fills this in from the run it belongs to, so it is only ever empty
 # when someone passes an empty string deliberately - which means the client
 # falls back to the runner's own hostname.
-if [ -n "$PEER_HOSTNAME" ] &&
-  ! [[ $PEER_HOSTNAME =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
-  echo "::error::input 'hostname' is not a valid hostname: '$PEER_HOSTNAME'. Use letters, digits and hyphens, up to 63 characters, not starting or ending with a hyphen."
+if [ -n "$PEER_NAME" ] &&
+  ! [[ $PEER_NAME =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]]; then
+  echo "::error::input 'peer-name' cannot be used as a peer name: '$PEER_NAME'. Use letters, digits and hyphens, up to 63 characters, not starting or ending with a hyphen."
   exit 1
 fi
 
@@ -73,8 +73,8 @@ printf '%s' "$SETUP_KEY" > "$key_file"
 
 up_args=(--setup-key-file "$key_file" --management-url "$MANAGEMENT_URL")
 
-if [ -n "$PEER_HOSTNAME" ]; then
-  up_args+=(--hostname "$PEER_HOSTNAME")
+if [ -n "$PEER_NAME" ]; then
+  up_args+=(--hostname "$PEER_NAME")
 fi
 
 # Whitespace is the only separator here, so an argument cannot contain one.
@@ -93,7 +93,7 @@ fi
 # leaving it behind would matter.
 save_state NB_CONNECTED true
 
-echo "=== Connecting as '${PEER_HOSTNAME:-$(hostname)}' ==="
+echo "=== Connecting as '${PEER_NAME:-$(hostname)}' ==="
 sudo netbird up "${up_args[@]}"
 
 rm -f "$key_file"

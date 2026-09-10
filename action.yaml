@@ -14,7 +14,7 @@ inputs:
     description: 'Management service URL [http|https]://[host]:[port]. Set this when you self-host NetBird.'
     required: false
     default: 'https://api.netbird.io:443'
-  hostname:
+  peer-name:
     description: 'Peer name shown in the NetBird dashboard.'
     required: false
     default: 'gh-${{ github.run_id }}-${{ github.run_attempt }}'

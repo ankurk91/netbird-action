@@ -53,7 +53,7 @@ jobs:
         env:
           NETBIRD_IP: ${{ steps.netbird.outputs.netbird-ip }}
           NETBIRD_PAT: ${{ steps.server.outputs.pat }}
-          PEER_HOSTNAME: gh-${{ github.run_id }}-${{ github.run_attempt }}
+          PEER_NAME: gh-${{ github.run_id }}-${{ github.run_attempt }}
         run: bash .github/e2e/assert-connected.sh
 
       # Runs the action's own DNS wait against this network, so the input is

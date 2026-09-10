@@ -53,7 +53,7 @@ jobs:
           management-url: https://api.netbird.io:443
           # Peer name in the dashboard. Every leg of a matrix shares one run id,
           # so give those a name of their own.
-          hostname: gh-${{ github.run_id }}-${{ github.run_attempt }}
+          peer-name: gh-${{ github.run_id }}-${{ github.run_attempt }}
           # Network ID of the route to send traffic through. Off when empty.
           exit-node: ${{ vars.NETBIRD_EXIT_NODE_ID }}
           # Names that must resolve before this step finishes. Off when empty.
@@ -87,7 +87,7 @@ There is no disconnect step to add — see [Cleanup](#cleanup).
 |-----------------------|----------|------------------------------|----------------------------------------------------------------------------------------------|
 | `setup-key`           | **yes**  | —                            | Setup key from the dashboard. Always pass this from a secret.                                |
 | `management-url`      | no       | `https://api.netbird.io:443` | Management service URL. Set this when you self-host NetBird.                                 |
-| `hostname`            | no       | `gh-<run id>-<run attempt>`  | Peer name shown in the dashboard.                                                            |
+| `peer-name`           | no       | `gh-<run id>-<run attempt>`  | Peer name shown in the dashboard.                                                            |
 | `exit-node`           | no       | —                            | Network ID to route through. The route must be distributed to this peer's group.             |
 | `dns-hostnames`       | no       | —                            | Names that must resolve before the action finishes. See [Waiting for DNS](#waiting-for-dns). |
 | `dns-require-private` | no       | `true`                       | Only accept a `dns-hostnames` name that points inside your network.                          |
@@ -148,6 +148,10 @@ Leave `version` at `latest` for the newest client, or pin it (`0.78.1`) to keep 
 
 It is off by default because that output describes your private network, and job logs reach more people than your
 dashboard does. Failures print an anonymised summary either way.
+
+## Changelog
+
+Upgrading? See [CHANGELOG.md](CHANGELOG.md) — `v2` renames one input.
 
 ## Troubleshooting
 

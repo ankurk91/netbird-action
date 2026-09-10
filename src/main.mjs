@@ -15,7 +15,7 @@ import process from 'node:process';
 const INPUTS = [
   'setup-key',
   'management-url',
-  'hostname',
+  'peer-name',
   'exit-node',
   'dns-hostnames',
   'dns-require-private',
