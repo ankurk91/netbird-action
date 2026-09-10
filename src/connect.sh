@@ -39,9 +39,9 @@ if [ "$TIMEOUT" -lt 1 ]; then
   exit 1
 fi
 
-public_ip() {
-  curl -4 -s --connect-timeout 5 --max-time 10 https://api.ipify.org || echo 'unavailable'
-}
+# Read by diagnostics.sh, which runs later - by then an exit node may be carrying
+# the traffic, so it cannot take this reading itself.
+IP_BEFORE_FILE="${RUNNER_TEMP:-/tmp}/netbird-public-ip-before"
 
 # Read by the post step at the end of the job. See install.sh for why a missing
 # GITHUB_STATE is not an error.
@@ -61,7 +61,7 @@ if [ -n "$PEER_NAME" ] &&
 fi
 
 if [ "$DIAGNOSTICS" = 'true' ]; then
-  ip_before_netbird="$(public_ip)"
+  curl -4 -s --connect-timeout 3 --max-time 5 https://icanhazip.com > "$IP_BEFORE_FILE" || true
 fi
 
 # Passing the key as --setup-key would leave it in the process list, where any
@@ -160,28 +160,3 @@ netbird_ip="$(sudo netbird status -4 2> /dev/null || true)"
 netbird_ip="${netbird_ip%%/*}"
 echo "netbird-ip=${netbird_ip}" >> "$GITHUB_OUTPUT"
 
-# Everything below describes the network the runner just joined: the other peers
-# and their addresses, every route the peer holds, where its traffic now leaves
-# from. A job log is readable by more people than the dashboard is, so it is
-# printed only when asked for.
-if [ "$DIAGNOSTICS" = 'true' ]; then
-  echo
-  echo '=== NetBird IP ==='
-  echo "$netbird_ip"
-
-  echo
-  echo '=== NetBird status ==='
-  sudo netbird status -d
-
-  echo
-  echo '=== Networks ==='
-  sudo netbird routes ls
-
-  echo
-  echo '=== Routes ==='
-  ip route
-
-  echo
-  echo "Public IP before NetBird: $ip_before_netbird"
-  echo "Public IP after NetBird: $(public_ip)"
-fi

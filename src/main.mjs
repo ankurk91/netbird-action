@@ -33,20 +33,36 @@ for (const name of INPUTS) {
   env[key.replaceAll('-', '_')] = process.env[key] ?? '';
 }
 
+const run = (script) => spawnSync('bash', [join(import.meta.dirname, script)], {
+  stdio: 'inherit',
+  env,
+});
+
+let failure = 0;
+
 for (const script of ['install.sh', 'connect.sh', 'dns-check.sh']) {
-  const { status, error } = spawnSync('bash', [join(import.meta.dirname, script)], {
-    stdio: 'inherit',
-    env,
-  });
+  const { status, error } = run(script);
 
   if (error) {
     console.log(`::error::cannot run ${script}: ${error.message}`);
-    process.exit(1);
+    failure = 1;
+    break;
   }
 
   // A script killed by a signal reports no status, and letting that read as
   // success would send the job on to steps that need a peer.
   if (status !== 0) {
-    process.exit(status ?? 1);
+    failure = status ?? 1;
+    break;
   }
 }
+
+// Runs after a failure too, and its status is ignored: a diagnostic must not be
+// why a job fails, nor why a failing one looks like it passed.
+const diagnostics = run('diagnostics.sh');
+
+if (diagnostics.error) {
+  console.log(`::warning::cannot run diagnostics.sh: ${diagnostics.error.message}`);
+}
+
+process.exit(failure);
